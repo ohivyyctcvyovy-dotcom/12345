@@ -62,3 +62,136 @@ h1{font-size:clamp(34px,7vw,65px);line-height:1.03;letter-spacing:-2px;margin:18
 @media(min-width:700px){.welcome{padding-top:68px}.suggestions{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:26px}.feature-strip{margin-top:20px}.composer{bottom:calc(78px + env(safe-area-inset-bottom))}.bottom-nav{height:78px}}
 @media(max-width:480px){.orb{right:0;top:50px;width:76px;height:76px;opacity:.7}.welcome{padding-top:30px}.welcome .eyebrow{max-width:calc(100% - 75px);font-size:8px;line-height:1.5}h1{font-size:clamp(31px,8vw,40px);letter-spacing:-1.4px}.hero-pills{gap:6px}.hero-pills span{font-size:9px;padding:7px 9px}.suggestions{grid-template-columns:1fr 1fr}.suggestion,.suggestion:last-child{min-height:82px;padding:13px}.suggestion:last-child{grid-column:1/-1}.feature-strip{gap:6px}.feature-chip{grid-template-columns:1fr;justify-items:start;padding:10px;row-gap:6px}.feature-chip>span{grid-row:auto}.feature-chip strong{font-size:11px}.feature-chip small{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.orb{animation:none}}
+
+
+/* Aurora Royal Emerald & Gold — visual refinement */
+:root{
+  --bg:#050806;
+  --panel:#0b110d;
+  --panel2:#101b13;
+  --text:#f7f5ec;
+  --muted:#a8ad9f;
+  --accent:#d9b45b;
+  --accent2:#f2d990;
+  --line:#3a3020;
+  --gold:#d9b45b;
+  --gold-light:#ffe6a0;
+  --emerald:#147a4b;
+}
+body{
+  background:
+    radial-gradient(ellipse at 78% 5%,#153c29 0,transparent 34%),
+    radial-gradient(ellipse at 8% 38%,#302512 0,transparent 28%),
+    #050806;
+}
+.topbar{
+  border-bottom-color:#d9b45b28;
+  background:#050806f2;
+}
+.brand-mark{
+  clip-path:none;
+  border:1px solid #f2d990a8;
+  border-radius:14px;
+  background:linear-gradient(145deg,#f8dfa0 0%,#c89b3c 48%,#73511c 100%);
+  color:#11160f;
+  box-shadow:0 0 25px #d9b45b30,inset 0 1px 0 #fff8;
+}
+.brand-copy strong{
+  color:#f8e7b5;
+  letter-spacing:2px;
+}
+.brand-copy span{color:#d9b45b}
+.icon-btn{
+  border-color:#594625;
+  background:linear-gradient(145deg,#17170f,#0b110d);
+}
+.icon-btn:hover,.suggestion:hover,.tool-card:hover{
+  border-color:#d9b45b;
+  box-shadow:0 0 22px #d9b45b12;
+}
+.orb{
+  background:
+    radial-gradient(circle at 30% 24%,#fff2c5 0,#f2d990 17%,#c59a3e 38%,#176a43 66%,#071b10 82%);
+  box-shadow:0 0 55px #d9b45b26,0 0 80px #147a4b25,inset 0 1px 4px #fff9;
+}
+.orb span{color:#182013;text-shadow:0 1px 1px #fff9}
+.orb:before{border-color:#d9b45b70}
+.orb:after{border-color:#d9b45b26}
+.welcome .eyebrow,.section-heading .eyebrow{color:#e6c66f}
+h1 em{
+  color:#e6c66f;
+  background:linear-gradient(100deg,#fff0b4,#d9b45b 55%,#f5dda0);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:none;
+}
+.hero-pills span{
+  border-color:#79602e55;
+  background:#d9b45b0b;
+}
+.suggestion,.tool-card,.task-item,.memory-item{
+  background:linear-gradient(145deg,#101811,#090e0a);
+  border-color:#3a3020;
+}
+.suggestion span,.tool-card span{color:#e2bd63}
+.message.assistant{
+  background:linear-gradient(145deg,#101811,#090e0a);
+  border-color:#3a3020;
+}
+.message .sender{color:#e6c66f}
+.message.user{
+  background:linear-gradient(135deg,#176b43,#104b31);
+  border:1px solid #d9b45b38;
+  color:#fffdf4;
+}
+.primary-btn,.send-btn{
+  background:linear-gradient(135deg,#f3d98f 0%,#d3aa4e 52%,#a87a28 100%);
+  color:#17170e;
+  box-shadow:0 5px 22px #d9b45b20,inset 0 1px 0 #fff8;
+}
+.primary-btn:hover,.send-btn:hover{filter:brightness(1.08)}
+.add-form input:focus,.memory-form textarea:focus,.composer textarea:focus{
+  border-color:#d9b45b;
+}
+.task-item input,.setting-row input{accent-color:#d9b45b}
+.composer{
+  background:#090e0bf5;
+  border-color:#6a512b;
+  box-shadow:0 10px 40px #0009,0 0 28px #d9b45b0c;
+}
+.voice-btn{
+  background:linear-gradient(145deg,#10291b,#0a160e);
+  border:1px solid #276344;
+  color:#e7c66f;
+}
+.voice-btn.listening{
+  background:linear-gradient(135deg,#f3d98f,#d3aa4e);
+  color:#17170e;
+  animation:pulseGold 1.2s infinite;
+}
+.bottom-nav{
+  background:#050806f7;
+  border-top-color:#d9b45b2b;
+}
+.nav-item{color:#899286}
+.nav-item.selected{
+  color:#f0d17d;
+  background:#d9b45b0d;
+}
+.nav-item.selected span{filter:drop-shadow(0 0 8px #d9b45b80)}
+.notice,.privacy-card{
+  background:linear-gradient(135deg,#d9b45b0b,#147a4b0b);
+  border-color:#d9b45b35;
+}
+.empty{border-color:#65502c}
+dialog{border-color:#594625;background:#0b110d}
+.setting-row{border-bottom-color:#3a3020}
+.danger-btn{border-color:#ff8e9b55}
+.toast{
+  background:#111a12;
+  border-color:#80632d;
+}
+@keyframes pulseGold{
+  50%{box-shadow:0 0 0 7px #d9b45b20}
+}
