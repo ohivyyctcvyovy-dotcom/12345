@@ -1,8 +1,8 @@
-# Aurora — Assistente pessoal para Android
+# Aurora — Assistente pessoal para Android (tema Neon Verde)
 
 Projeto gratuito em formato PWA (aplicativo web instalável), em português.
 
-## O que já funciona
+## O que já funciona\n- Interface renovada em preto e verde neon, com animações suaves e layout adaptado para Android.
 - Interface adaptada para celular e instalação na tela inicial quando hospedada por HTTPS.
 - Reconhecimento de voz pelo navegador (quando suportado, normalmente Google Chrome no Android).
 - Leitura das respostas em voz alta pela síntese de voz do aparelho.
@@ -18,7 +18,7 @@ Esta versão **não inclui um modelo de linguagem grande** e não é equivalente
 1. Extraia o ZIP no celular ou computador.
 2. Entre em `https://github.com` e crie uma conta, se ainda não tiver.
 3. Crie um repositório público chamado `aurora-assistente`.
-4. Envie todos os arquivos e pastas deste projeto para a raiz do repositório (incluindo `index.html`, `app.js`, `style.css`, `manifest.webmanifest`, `sw.js` e `icons/`).
+4. Envie todos os arquivos e pastas deste projeto para a raiz do repositório (incluindo `index.html`, `app.js`, `style.css`, `manifest.webmanifest`, `sw.js`, `icon-192.png` e `icon-512.png`).
 5. Nas configurações do repositório, abra **Pages**.
 6. Em **Build and deployment**, escolha **Deploy from a branch**, selecione `main` e `/ (root)`, e salve.
 7. Aguarde a publicação e abra a URL do Pages que o GitHub mostrar.
@@ -37,7 +37,7 @@ Os dados são guardados no `localStorage` do navegador neste dispositivo. Não s
 - `app.js` — conversa local, voz, memória, tarefas e configurações
 - `manifest.webmanifest` — metadados do aplicativo instalável
 - `sw.js` — cache básico offline
-- `icons/` — ícones do aplicativo
+- `icon-192.png` e `icon-512.png` — ícones do aplicativo
 
 ## Próximas melhorias possíveis
 - Conectar um modelo de linguagem por um backend seguro.
