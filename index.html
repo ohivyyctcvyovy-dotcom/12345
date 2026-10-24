@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10131d">
+  <meta name="description" content="Aurora, sua assistente pessoal para Android.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Aurora • Assistente pessoal</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">✦</div>
+      <div class="brand-copy"><strong>Aurora</strong><span>ASSISTENTE PESSOAL</span></div>
+      <button id="installBtn" class="icon-btn install-btn hidden" aria-label="Instalar aplicativo" title="Instalar">⇩</button>
+      <button id="settingsBtn" class="icon-btn" aria-label="Configurações" title="Configurações">⚙</button>
+    </header>
+
+    <main>
+      <section id="chatView" class="view active">
+        <div class="welcome">
+          <div class="orb"><span>✦</span></div>
+          <p class="eyebrow">PRONTA PARA AJUDAR</p>
+          <h1>Olá! O que vamos<br><em>fazer hoje?</em></h1>
+          <p class="subwelcome">Converse comigo, guarde ideias ou organize seu dia.</p>
+        </div>
+        <div id="suggestions" class="suggestions">
+          <button class="suggestion" data-prompt="Me ajuda a organizar meu dia"><span>☼</span> Organizar meu dia</button>
+          <button class="suggestion" data-prompt="Quero guardar uma memória: gosto de respostas diretas"><span>♡</span> Guardar uma memória</button>
+          <button class="suggestion" data-prompt="Me mostra o que você consegue fazer"><span>✧</span> O que você consegue fazer?</button>
+        </div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+      </section>
+
+      <section id="tasksView" class="view">
+        <div class="section-heading"><p class="eyebrow">SEU DIA, EM ORDEM</p><h2>Minhas tarefas</h2><p>Pequenos passos também contam.</p></div>
+        <form id="taskForm" class="add-form">
+          <input id="taskInput" maxlength="180" placeholder="Adicionar uma tarefa..." required>
+          <button class="primary-btn" type="submit" aria-label="Adicionar tarefa">＋</button>
+        </form>
+        <div id="taskList" class="task-list"></div>
+      </section>
+
+      <section id="memoryView" class="view">
+        <div class="section-heading"><p class="eyebrow">O QUE IMPORTA PARA TI</p><h2>Minha memória</h2><p>As memórias ficam salvas neste aparelho.</p></div>
+        <form id="memoryForm" class="memory-form">
+          <textarea id="memoryInput" rows="3" maxlength="500" placeholder="Ex.: Prefiro respostas curtas e gosto de jogos..." required></textarea>
+          <button class="primary-btn full" type="submit">＋ Guardar memória</button>
+        </form>
+        <div id="memoryList" class="memory-list"></div>
+      </section>
+
+      <section id="toolsView" class="view">
+        <div class="section-heading"><p class="eyebrow">ATALHOS ÚTEIS</p><h2>Ferramentas</h2><p>Peça uma ação no chat ou abra uma ferramenta.</p></div>
+        <div class="tool-grid">
+          <button class="tool-card" data-action="task"><span>☑</span><strong>Nova tarefa</strong><small>Organize uma coisa para fazer</small></button>
+          <button class="tool-card" data-action="memory"><span>♡</span><strong>Guardar memória</strong><small>Salve uma informação importante</small></button>
+          <button class="tool-card" data-action="time"><span>◷</span><strong>Data e hora</strong><small>Veja o horário do aparelho</small></button>
+          <button class="tool-card" data-action="help"><span>✦</span><strong>Ajuda</strong><small>Veja os comandos disponíveis</small></button>
+        </div>
+        <div class="notice"><strong>Sobre a inteligência da Aurora</strong><p>Esta versão funciona sem uma API paga. Para conversar livremente sobre qualquer tema com inteligência avançada, será necessário conectar um modelo de linguagem. Nunca coloque chaves secretas em um site público.</p></div>
+      </section>
+    </main>
+
+    <form id="composer" class="composer">
+      <button id="voiceBtn" type="button" class="voice-btn" aria-label="Falar com Aurora" title="Falar">🎙</button>
+      <textarea id="chatInput" rows="1" maxlength="1000" placeholder="Escreve para a Aurora..." aria-label="Mensagem"></textarea>
+      <button class="send-btn" type="submit" aria-label="Enviar mensagem">↑</button>
+    </form>
+    <nav class="bottom-nav" aria-label="Navegação">
+      <button class="nav-item selected" data-view="chatView"><span>✦</span><small>Conversar</small></button>
+      <button class="nav-item" data-view="tasksView"><span>☑</span><small>Tarefas</small></button>
+      <button class="nav-item" data-view="memoryView"><span>♡</span><small>Memória</small></button>
+      <button class="nav-item" data-view="toolsView"><span>▦</span><small>Ferramentas</small></button>
+    </nav>
+  </div>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="dialog-head"><div><p class="eyebrow">PERSONALIZAÇÃO</p><h2>Configurações</h2></div><button class="icon-btn" aria-label="Fechar">✕</button></form>
+    <div class="settings-content">
+      <label class="setting-row"><span><strong>Falar respostas em voz alta</strong><small>Usa a voz instalada no Android.</small></span><input id="speakToggle" type="checkbox" checked></label>
+      <label class="setting-row"><span><strong>Vibração visual do microfone</strong><small>Mostra quando o reconhecimento está ativo.</small></span><input id="voiceToggle" type="checkbox" checked></label>
+      <div class="privacy-card"><strong>Privacidade</strong><p>Conversas, tarefas e memórias são guardadas no armazenamento local do navegador. Limpar os dados do navegador pode apagá-los.</p></div>
+      <button id="clearBtn" class="danger-btn" type="button">Apagar todos os dados locais</button>
+      <p class="tiny-note">Aurora v1.0 · Projeto gratuito e de código aberto para personalização.</p>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
