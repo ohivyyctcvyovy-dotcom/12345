@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root{color-scheme:dark;--bg:#030705;--panel:#0a1410;--panel2:#0d1d15;--text:#effff4;--muted:#8aa397;--accent:#28f078;--accent2:#8bffb5;--line:#173b28;--danger:#ff8290;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#07351b 0,transparent 48%),radial-gradient(ellipse at 100% 40%,#06180d 0,transparent 38%),var(--bg);color:var(--text);min-height:100dvh}.app-shell{max-width:720px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(142px + env(safe-area-inset-bottom))}
@@ -42,14 +42,51 @@ h1 em{color:#45f285;text-shadow:0 0 24px #28f07820}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 
 
-/* Aurora typography refresh: Space Grotesk + subtle animated glow */
-:root{font-family:"Space Grotesk",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body,button,input,textarea,select{font-family:"Space Grotesk",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.brand-copy strong{font-weight:700;letter-spacing:.15px}
-.brand-copy span,.eyebrow{font-weight:700;letter-spacing:1.7px}
-h1,h2,.section-heading h2{font-weight:700;letter-spacing:-.045em}
-h1 em{animation:auroraTextGlow 3.8s ease-in-out infinite alternate}
-.brand-copy strong{animation:auroraBrandGlow 5s ease-in-out infinite}
-@keyframes auroraTextGlow{from{text-shadow:0 0 8px #28f07812}to{text-shadow:0 0 18px #28f07855,0 0 32px #28f07820}}
-@keyframes auroraBrandGlow{0%,100%{text-shadow:0 0 0 #28f07800}50%{text-shadow:0 0 10px #28f07840}}
-@media(prefers-reduced-motion:reduce){h1 em,.brand-copy strong{animation:none!important}}
+/* Aurora typography: clean, modern, easy to read */
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html, body, button, input, textarea, select, option, dialog {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body { letter-spacing: -0.01em; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.16;
+}
+
+h1 {
+  font-weight: 750;
+  letter-spacing: -0.045em;
+}
+
+p, .subwelcome, .message, .task-item .task-text, .memory-item p,
+.tool-card small, .notice p, .privacy-card p {
+  line-height: 1.65;
+  letter-spacing: -0.012em;
+}
+
+.brand-copy strong { font-weight: 750; letter-spacing: -0.025em; }
+.brand-copy span, .eyebrow, .message .sender {
+  letter-spacing: 0.08em;
+  font-weight: 650;
+}
+
+/* Gentle motion only on the highlighted heading text */
+h1 em { animation: auroraFontGlow 4s ease-in-out infinite alternate; }
+
+@keyframes auroraFontGlow {
+  from { text-shadow: 0 0 0 rgba(40, 240, 120, 0); }
+  to { text-shadow: 0 0 14px rgba(40, 240, 120, 0.22); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h1 em { animation: none !important; }
+                                                                                                                                                                                                                                                                                                                                                                                                              }
