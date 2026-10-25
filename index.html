@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#030705">
+  <meta name="theme-color" content="#000000">
   <meta name="description" content="Aurora, sua assistente pessoal para Android.">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=blackgold20261024">
+  <link rel="icon" type="image/svg+xml" href="aurora-logo.svg?v=gold20261024">
+  <link rel="stylesheet" href="style.css?v=obsidian-gold-v3-20261024">
   <title>Aurora • Assistente pessoal</title>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand-mark" aria-hidden="true">A</div>
+      <div class="brand-mark" aria-label="Logo Aurora"><img src="aurora-logo.svg?v=gold20261024" alt="Logo Aurora"></div>
       <div class="brand-copy"><strong>AURORA</strong><span>● SUA COMPANHEIRA INTELIGENTE</span></div>
       <button id="installBtn" class="icon-btn install-btn hidden" aria-label="Instalar aplicativo" title="Instalar">⇩</button>
       <button id="settingsBtn" class="icon-btn" aria-label="Configurações" title="Configurações">⚙</button>
@@ -85,6 +85,7 @@
     <div class="settings-content">
       <label class="setting-row"><span><strong>Falar respostas em voz alta</strong><small>Usa a voz instalada no Android.</small></span><input id="speakToggle" type="checkbox" checked></label>
       <label class="setting-row"><span><strong>Vibração visual do microfone</strong><small>Mostra quando o reconhecimento está ativo.</small></span><input id="voiceToggle" type="checkbox" checked></label>
+      <label class="setting-row voice-choice-row"><span><strong>Voz da Aurora</strong><small>Escolhe uma voz feminina em português, se estiver instalada no aparelho.</small></span><select id="voiceSelect" aria-label="Escolher voz da Aurora"><option value="auto">Voz brasileira recomendada</option></select></label>
       <div class="privacy-card"><strong>Privacidade</strong><p>Conversas, tarefas e memórias são guardadas no armazenamento local do navegador. Limpar os dados do navegador pode apagá-los.</p></div>
       <button id="clearBtn" class="danger-btn" type="button">Apagar todos os dados locais</button>
       <p class="tiny-note">Aurora v1.0 · Projeto gratuito e de código aberto para personalização.</p>
