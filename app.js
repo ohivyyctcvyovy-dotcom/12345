@@ -64,10 +64,11 @@
     status.textContent = "Verificando se o Worker está respondendo…";
     status.dataset.state = "checking";
     try {
-      const response = await fetch(value + "/health", {method:"GET", headers:{"Accept":"application/json"}, cache:"no-store"});
+      const response = await fetch(value + "/chat", {method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json"}, cache:"no-store", body:JSON.stringify({messages:[{role:"user",content:"Responda somente: Aurora conectada."}]})});
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok !== true) throw new Error(data.error || "O Worker respondeu, mas não confirmou que está ativo.");
-      status.textContent = "Conexão confirmada! A Aurora conseguiu alcançar o Worker.";
+      const reply = typeof data.reply === "string" ? data.reply : (typeof data.answer === "string" ? data.answer : "");
+      if (!response.ok || !reply.trim()) throw new Error(data.error || ("O servidor respondeu com HTTP " + response.status + ", mas não retornou uma resposta da IA."));
+      status.textContent = "IA funcionando! Resposta de teste: " + reply.trim().slice(0, 120);
       status.dataset.state = "success";
       toast("Endereço salvo e conexão confirmada!");
     } catch (error) {
