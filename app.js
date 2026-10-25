@@ -35,11 +35,49 @@
     $("#aiEndpoint").value = settings.aiEndpoint || "";
     $("#settingsDialog").showModal();
   });
-  $("#aiEndpoint").addEventListener("change", e => {
-    const value = e.target.value.trim().replace(/\/+$/, "");
-    if (value && !value.startsWith("https://")) { toast("O endereço precisa começar com https://"); e.target.value = settings.aiEndpoint || ""; return; }
-    settings.aiEndpoint = value; write(STORE.settings, settings);
-    toast(value ? "Endereço da API salvo neste aparelho." : "Conexão com IA desativada.");
+  function saveEndpoint(showToast = true) {
+    const input = $("#aiEndpoint");
+    const value = input.value.trim().replace(/\/+$/, "");
+    const status = $("#apiStatus");
+    if (value && (!/^https:\/\//i.test(value) || /\s/.test(value))) {
+      status.textContent = "Endereço inválido. Cole o endereço completo começando com https://.";
+      status.dataset.state = "error";
+      input.focus();
+      return null;
+    }
+    settings.aiEndpoint = value;
+    write(STORE.settings, settings);
+    status.textContent = value ? "Endereço salvo neste aparelho. Agora vamos verificar a conexão…" : "Conexão com IA desativada.";
+    status.dataset.state = value ? "checking" : "idle";
+    if (showToast) toast(value ? "Endereço da API salvo." : "Conexão com IA desativada.");
+    return value;
+  }
+  $("#aiEndpoint").addEventListener("change", () => saveEndpoint(false));
+  $("#saveEndpointBtn").addEventListener("click", async () => {
+    const value = saveEndpoint(false);
+    const button = $("#saveEndpointBtn");
+    const status = $("#apiStatus");
+    if (value === null) return;
+    if (!value) { toast("Cole o endereço do Worker primeiro."); $("#aiEndpoint").focus(); return; }
+    button.disabled = true;
+    button.textContent = "Testando conexão…";
+    status.textContent = "Verificando se o Worker está respondendo…";
+    status.dataset.state = "checking";
+    try {
+      const response = await fetch(value + "/health", {method:"GET", headers:{"Accept":"application/json"}, cache:"no-store"});
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok !== true) throw new Error(data.error || "O Worker respondeu, mas não confirmou que está ativo.");
+      status.textContent = "Conexão confirmada! A Aurora conseguiu alcançar o Worker.";
+      status.dataset.state = "success";
+      toast("Endereço salvo e conexão confirmada!");
+    } catch (error) {
+      status.textContent = "Endereço salvo, mas o teste falhou. Confira se o Worker está publicado e se o endereço está correto.";
+      status.dataset.state = "error";
+      toast("Endereço salvo, mas não foi possível testar a conexão.");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Salvar e testar conexão";
+    }
   });
   $("#voiceSelect").addEventListener("change", e => {
     settings.voiceName = e.target.value || "auto";
