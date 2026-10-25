@@ -76,9 +76,10 @@
       status.dataset.state = "success";
       toast("Endereço salvo e conexão confirmada!");
     } catch (error) {
-      status.textContent = "Endereço salvo, mas o teste falhou. Confira se o Worker está publicado e se o endereço está correto.";
+      const detail = error && error.message ? error.message : "Falha de conexão.";
+      status.textContent = "O teste falhou: " + detail + " Confira a configuração do Worker e tente novamente.";
       status.dataset.state = "error";
-      toast("Endereço salvo, mas não foi possível testar a conexão.");
+      toast("O teste da conexão falhou. Veja os detalhes nas configurações.");
     } finally {
       button.disabled = false;
       button.textContent = "Salvar e testar conexão";
