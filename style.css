@@ -375,3 +375,75 @@ dialog::backdrop{background:#000e!important}
 .speech-toolbar label{display:flex;align-items:center;gap:5px}
 .speech-toolbar button:active{background:#493817}
 @media(max-width:390px){.speech-toolbar{gap:5px;padding:7px}.speech-toolbar span{display:none}.speech-toolbar button{padding:7px;font-size:10px}.speech-toolbar label{font-size:10px}}
+
+
+/* Aurora mobile hero + microphone premium redesign */
+.welcome{
+  max-width:none;
+  margin:18px 0 22px;
+  padding:24px 18px 20px;
+  border:1px solid #6b542b;
+  border-radius:26px;
+  overflow:hidden;
+  isolation:isolate;
+  background:
+    radial-gradient(ellipse at 82% 28%,#d9b45b1c 0,transparent 42%),
+    linear-gradient(145deg,#0d0c08f5,#030403 72%);
+  box-shadow:inset 0 1px 0 #ffe6a01a,0 14px 38px #0008;
+}
+.welcome:before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  width:190px;height:190px;
+  right:-85px;top:45px;
+  border-radius:50%;
+  border:1px solid #d9b45b45;
+  box-shadow:0 0 0 10px #d9b45b08,0 0 45px #d9b45b14;
+  pointer-events:none;
+}
+.welcome .eyebrow{
+  max-width:calc(100% - 70px);
+  padding:9px 11px;
+  border:1px solid #d9b45b30;
+  border-radius:13px;
+  background:#090909b8;
+  line-height:1.65;
+}
+.welcome h1{position:relative;z-index:1;margin-top:24px;font-size:clamp(30px,7.5vw,44px);line-height:1.12}
+.welcome .subwelcome{position:relative;z-index:1;max-width:520px;color:#c9c3b4}
+.welcome .hero-pills{position:relative;z-index:1;gap:7px}
+.welcome .hero-pills span{border-color:#594625;background:#080907;color:#e7d8ad;padding:8px 10px}
+.welcome .orb{
+  right:14px;top:90px;
+  width:clamp(74px,22vw,142px);height:clamp(74px,22vw,142px);
+  border:1px solid #ffe6a0a8;
+  box-shadow:0 0 0 7px #d9b45b12,0 0 28px #d9b45b2b,inset 0 1px 4px #fff9;
+}
+.welcome .orb:before{inset:-8px;border-color:#d9b45b65}
+.welcome .orb:after{inset:-15px;border-color:#d9b45b24}
+.composer{gap:10px;padding:9px 10px;border-radius:28px;border-color:#705726;background:linear-gradient(145deg,#080907f7,#020302f7);box-shadow:0 12px 36px #000b,0 0 24px #d9b45b12}
+.voice-btn{
+  flex:0 0 52px;width:52px;height:52px;border-radius:50%;
+  border:1px solid #d9b45b;
+  color:#ffe6a0;
+  background:radial-gradient(circle at 35% 25%,#342916,#090909 75%);
+  box-shadow:inset 0 1px 0 #ffe6a030,0 0 0 4px #d9b45b10,0 0 20px #d9b45b20;
+  font-size:23px;
+}
+.voice-btn.listening{background:radial-gradient(circle,#ffe6a0,#d9b45b);color:#090909;border-color:#ffe6a0;box-shadow:0 0 0 5px #d9b45b22,0 0 28px #d9b45b70;animation:pulseGold 1.2s infinite}
+.composer textarea{border-radius:20px;background:#090909;padding:14px 12px;min-height:50px;font-size:14px}
+.send-btn{flex:0 0 52px;width:52px;height:52px;border-radius:50%;font-size:25px}
+.speech-toolbar{bottom:calc(132px + env(safe-area-inset-bottom));}
+@media(max-width:480px){
+ .welcome{padding:20px 15px 17px;margin-top:14px;border-radius:22px}
+ .welcome .eyebrow{max-width:calc(100% - 52px);font-size:8px;letter-spacing:1.2px}
+ .welcome .orb{top:92px;right:10px;width:76px;height:76px}
+ .welcome h1{font-size:clamp(29px,7.6vw,38px);letter-spacing:-1.2px;margin-top:23px}
+ .welcome .subwelcome{font-size:13px;max-width:100%;padding-right:0}
+ .welcome .hero-pills span{font-size:9px;padding:7px 8px}
+ .voice-btn,.send-btn{flex-basis:46px;width:46px;height:46px}
+ .voice-btn{font-size:21px}
+ .composer textarea{min-height:46px;padding:12px 7px}
+}
+@media(prefers-reduced-motion:reduce){.welcome .orb{animation:none}}
