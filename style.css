@@ -349,3 +349,22 @@ h1 em{background:none!important;-webkit-text-fill-color:#d4af37!important;text-s
 dialog::backdrop{background:#000e!important}
 .toast{background:#080808!important;border-color:#8d6b2a!important;color:#ffe7a0!important}
 @keyframes pulseGold{50%{box-shadow:0 0 0 7px #d4af3720!important}}
+
+
+/* Aurora API connection card — mobile-first, clear save/test feedback */
+.api-card{margin:18px 0 22px;padding:18px;border:1px solid #493817;border-radius:20px;background:linear-gradient(145deg,#101010,#050505);box-shadow:inset 0 1px #ffffff08}
+.api-card-heading{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.api-icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #d4af37;border-radius:14px;background:#d4af3710;color:#ffe7a0;font-size:22px}
+.api-card-heading .eyebrow{margin:0 0 4px;font-size:10px;letter-spacing:1.4px}
+.api-card-heading h3{margin:0;font-size:19px;line-height:1.25;color:#f7f1df}
+.api-help{margin:0 0 16px;color:#b9ad8c;font-size:13px;line-height:1.55}
+.api-label{display:block;margin-bottom:8px;color:#ffe7a0;font-size:12px;font-weight:700}
+.api-input{display:block;width:100%;min-width:0;box-sizing:border-box;padding:14px 12px;border:1px solid #493817;border-radius:12px;background:#000;color:#f7f1df;font-size:13px;outline:none}
+.api-input:focus{border-color:#d4af37;box-shadow:0 0 0 3px #d4af3718}
+.api-save-btn{margin-top:12px;min-height:48px;border-radius:13px;font-size:14px;font-weight:800}
+.api-save-btn:disabled{opacity:.65}
+.api-status{margin:12px 0 0;padding:10px 11px;border:1px solid #493817;border-radius:10px;background:#000;color:#b9ad8c;font-size:12px;line-height:1.45}
+.api-status[data-state="checking"]{border-color:#8d6b2a;color:#ffe7a0}
+.api-status[data-state="success"]{border-color:#547d4e;color:#b9e5a9}
+.api-status[data-state="error"]{border-color:#9b5555;color:#ffbaba}
+@media(max-width:480px){.api-card{padding:15px;border-radius:17px}.api-card-heading h3{font-size:17px}.api-input{font-size:12px}}
