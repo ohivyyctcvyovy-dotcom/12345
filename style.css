@@ -278,3 +278,74 @@ input,textarea,button,select{font-family:'Inter',Arial,sans-serif}
 .add-form input:focus,.memory-form textarea:focus,.composer textarea:focus{border-color:#d4af37!important}
 .toast{background:#111!important;border-color:#8d6b2a!important}
 @media(max-width:480px){.brand-copy strong{font-size:18px}.voice-choice-row{align-items:flex-start}.voice-choice-row select{max-width:52%}}
+
+
+/* HARD OVERRIDE v4 — NO GREEN ANYWHERE: pure black + gold only */
+:root{
+  color-scheme:dark!important;
+  --bg:#000000!important;
+  --panel:#080808!important;
+  --panel2:#111111!important;
+  --text:#f7f1df!important;
+  --muted:#b9ad8c!important;
+  --accent:#d4af37!important;
+  --accent2:#ffe7a0!important;
+  --line:#493817!important;
+  --danger:#d4af37!important;
+  font-family:'Inter',Arial,sans-serif!important;
+}
+html,body,.app-shell,main,.view{background-color:#000!important;color:#f7f1df!important}
+body{
+  background:#000!important;
+  background-image:none!important;
+  font-family:'Inter',Arial,sans-serif!important;
+}
+*,*::before,*::after{scrollbar-color:#d4af37 #000}
+h1,h2,h3,h4,p,span,strong,small,label,li,.task-text,.message,.section-heading,.brand-copy{
+  text-shadow:none;
+}
+h1,h2,h3,.brand-copy strong,.brand-copy span,.eyebrow,.nav-item small,.section-heading *{
+  font-family:'Exo 2','Inter',Arial,sans-serif!important;
+}
+.brand-copy strong,h1 em,.brand-copy span,.eyebrow,.welcome .eyebrow,.section-heading .eyebrow,
+.suggestion span,.tool-card span,.message .sender,.nav-item.selected,.nav-item.selected span{
+  color:#d4af37!important;
+}
+.brand-mark{background:#000!important;border:1px solid #d4af37!important;box-shadow:0 0 18px #d4af3720!important}
+.topbar,.bottom-nav,.composer,.dialog-head,dialog{
+  background:#000!important;border-color:#493817!important;color:#f7f1df!important
+}
+.orb{
+  background:radial-gradient(circle at 32% 25%,#fff2c1 0,#d4af37 30%,#785919 56%,#000 80%)!important;
+  border:1px solid #d4af37!important;box-shadow:0 0 30px #d4af3720!important
+}
+.orb span{color:#000!important}
+.orb:before,.orb:after{border-color:#d4af3740!important}
+h1 em{background:none!important;-webkit-text-fill-color:#d4af37!important;text-shadow:none!important}
+.subwelcome,.section-heading>p:last-child,.notice p,.privacy-card p,.setting-row small,.tiny-note,
+.tool-card small,.delete-btn,.empty{color:#b9ad8c!important}
+.hero-pills span{color:#ffe7a0!important;background:#d4af3708!important;border-color:#493817!important}
+.suggestions,.suggestion,.tool-card,.task-item,.memory-item,.message.assistant,.empty,
+.add-form input,.memory-form textarea,.composer textarea,.notice,.privacy-card,.toast{
+  background:#080808!important;border-color:#493817!important;color:#f7f1df!important
+}
+.suggestion:hover,.tool-card:hover,.icon-btn:hover{border-color:#d4af37!important;box-shadow:0 0 15px #d4af3715!important}
+.message.user{background:linear-gradient(135deg,#d4af37,#8d6b1d)!important;color:#080808!important;border-color:#ffe7a0!important}
+.primary-btn,.send-btn{
+  background:linear-gradient(135deg,#fff0ad,#d4af37 55%,#98701c)!important;
+  color:#080808!important;border:1px solid #ffe7a0!important;box-shadow:none!important
+}
+.icon-btn{background:#080808!important;border:1px solid #493817!important;color:#ffe7a0!important}
+.add-form input:focus,.memory-form textarea:focus,.composer textarea:focus{border-color:#d4af37!important}
+.task-item input,.setting-row input{accent-color:#d4af37!important}
+.voice-btn{background:#080808!important;border:1px solid #d4af37!important;color:#ffe7a0!important}
+.voice-btn.listening{background:#d4af37!important;color:#000!important;animation:pulseGold 1.2s infinite!important}
+.nav-item{color:#b9ad8c!important;background:transparent!important}
+.nav-item.selected{color:#ffe7a0!important;background:#d4af3710!important}
+.nav-item.selected span{filter:drop-shadow(0 0 6px #d4af3750)!important}
+.setting-row{border-bottom-color:#332817!important}
+.setting-row select{background:#080808!important;color:#ffe7a0!important;border-color:#493817!important}
+.danger-btn{border-color:#8d6b2a!important;background:#d4af370c!important;color:#ffe7a0!important}
+dialog::backdrop{background:#000e!important}
+.toast{background:#080808!important;border-color:#8d6b2a!important;color:#ffe7a0!important}
+@keyframes pulseGold{50%{box-shadow:0 0 0 7px #d4af3720!important}}
