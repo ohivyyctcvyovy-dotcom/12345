@@ -8,9 +8,13 @@
   let tasks = read(STORE.tasks, []);
   let memories = read(STORE.memories, []);
   let history = read(STORE.messages, []);
-  let settings = read(STORE.settings, {speak:true, voice:true, voiceName:"auto", aiEndpoint:"https://aurora-api.ohivyyctcvy.workers.dev"});
+  let settings = read(STORE.settings, {speak:true, voice:true, voiceName:"auto", aiEndpoint:"https://aurora-api.ohivyyctcvyovy.workers.dev"});
   settings.voiceName = settings.voiceName || "auto";
-  settings.aiEndpoint = settings.aiEndpoint || "https://aurora-api.ohivyyctcvy.workers.dev";
+  if (settings.aiEndpoint === "https://aurora-api.ohivyyctcvy.workers.dev") {
+    settings.aiEndpoint = "https://aurora-api.ohivyyctcvyovy.workers.dev";
+    write(STORE.settings, settings);
+  }
+  settings.aiEndpoint = settings.aiEndpoint || "https://aurora-api.ohivyyctcvyovy.workers.dev";
   let toastTimer;
 
   function toast(msg) {
