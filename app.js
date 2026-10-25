@@ -8,8 +8,9 @@
   let tasks = read(STORE.tasks, []);
   let memories = read(STORE.memories, []);
   let history = read(STORE.messages, []);
-  let settings = read(STORE.settings, {speak:true, voice:true, voiceName:"auto"});
+  let settings = read(STORE.settings, {speak:true, voice:true, voiceName:"auto", aiEndpoint:""});
   settings.voiceName = settings.voiceName || "auto";
+  settings.aiEndpoint = settings.aiEndpoint || "";
   let toastTimer;
 
   function toast(msg) {
@@ -31,7 +32,14 @@
     $("#voiceToggle").checked = settings.voice;
     populateVoiceSelect();
     $("#voiceSelect").value = settings.voiceName || "auto";
+    $("#aiEndpoint").value = settings.aiEndpoint || "";
     $("#settingsDialog").showModal();
+  });
+  $("#aiEndpoint").addEventListener("change", e => {
+    const value = e.target.value.trim().replace(/\/+$/, "");
+    if (value && !value.startsWith("https://")) { toast("O endereço precisa começar com https://"); e.target.value = settings.aiEndpoint || ""; return; }
+    settings.aiEndpoint = value; write(STORE.settings, settings);
+    toast(value ? "Endereço da API salvo neste aparelho." : "Conexão com IA desativada.");
   });
   $("#voiceSelect").addEventListener("change", e => {
     settings.voiceName = e.target.value || "auto";
@@ -174,11 +182,31 @@
     if (preferred) { u.voice = preferred; u.lang = preferred.lang; }
     window.speechSynthesis.speak(u);
   }
-  function send(text) {
+  async function send(text) {
     const value=text.trim();if(!value)return;
     addMessage("user",value);
     const response=localReply(value);
-    addMessage("assistant",response);speak(response);
+    const needsAI = response.startsWith("Ainda não tenho um modelo de linguagem conectado");
+    if (!needsAI) { addMessage("assistant",response);speak(response);return; }
+    if (!settings.aiEndpoint) { addMessage("assistant",response);speak(response);return; }
+    addMessage("assistant","Pensando…");
+    try {
+      const recent = history.slice(0, -1).filter(m => m.role === "user" || m.role === "assistant")
+        .slice(-12).map(m => ({role:m.role, content:m.text}));
+      recent.push({role:"user", content:value});
+      const res = await fetch(settings.aiEndpoint + "/chat", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({messages:recent})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.reply !== "string") throw new Error(data.error || "Não foi possível obter resposta da IA.");
+      history[history.length-1] = {...history[history.length-1], text:data.reply};
+      write(STORE.messages,history);renderMessages();speak(data.reply);
+    } catch (err) {
+      const message = err && err.message ? err.message : "Falha de conexão com a IA.";
+      history[history.length-1] = {...history[history.length-1], text:"Não consegui conectar à IA agora. " + message + "\n\nConfira o endereço da API nas Configurações e tente novamente."};
+      write(STORE.messages,history);renderMessages();
+    }
   }
   $("#composer").addEventListener("submit",e=>{e.preventDefault();const input=$("#chatInput");send(input.value);input.value="";input.style.height="auto";});
   $("#chatInput").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,110)+"px";});
