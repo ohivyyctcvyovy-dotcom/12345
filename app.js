@@ -211,13 +211,14 @@
     window.speechSynthesis.addEventListener("voiceschanged", populateVoiceSelect);
     populateVoiceSelect();
   }
+  let speechRate = 0.94;
   function speak(text) {
     if (!settings.speak || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "pt-BR";
     // Slightly slower and warmer delivery for Aurora's conversational personality.
-    u.rate = 0.94;
+    u.rate = speechRate;
     u.pitch = 1.12;
     const voices = availablePortugueseVoices();
     const preferred = settings.voiceName && settings.voiceName !== "auto"
@@ -252,6 +253,10 @@
       write(STORE.messages,history);renderMessages();
     }
   }
+  $("#speechPauseBtn").addEventListener("click",()=>{if("speechSynthesis" in window && window.speechSynthesis.speaking)window.speechSynthesis.pause();});
+  $("#speechResumeBtn").addEventListener("click",()=>{if("speechSynthesis" in window && window.speechSynthesis.paused)window.speechSynthesis.resume();});
+  $("#speechStopBtn").addEventListener("click",()=>{if("speechSynthesis" in window)window.speechSynthesis.cancel();});
+  $("#speechSpeed").addEventListener("change",e=>{speechRate=Number(e.target.value)||0.94;});
   $("#composer").addEventListener("submit",e=>{e.preventDefault();const input=$("#chatInput");send(input.value);input.value="";input.style.height="auto";});
   $("#chatInput").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,110)+"px";});
   $$(".suggestion").forEach(b=>b.addEventListener("click",()=>send(b.dataset.prompt)));
