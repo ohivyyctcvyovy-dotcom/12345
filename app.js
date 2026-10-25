@@ -8,7 +8,8 @@
   let tasks = read(STORE.tasks, []);
   let memories = read(STORE.memories, []);
   let history = read(STORE.messages, []);
-  let settings = read(STORE.settings, {speak:true, voice:true});
+  let settings = read(STORE.settings, {speak:true, voice:true, voiceName:"auto"});
+  settings.voiceName = settings.voiceName || "auto";
   let toastTimer;
 
   function toast(msg) {
@@ -28,7 +29,14 @@
   $("#settingsBtn").addEventListener("click", () => {
     $("#speakToggle").checked = settings.speak;
     $("#voiceToggle").checked = settings.voice;
+    populateVoiceSelect();
+    $("#voiceSelect").value = settings.voiceName || "auto";
     $("#settingsDialog").showModal();
+  });
+  $("#voiceSelect").addEventListener("change", e => {
+    settings.voiceName = e.target.value || "auto";
+    write(STORE.settings, settings);
+    toast("Voz da Aurora atualizada.");
   });
   $("#speakToggle").addEventListener("change", e => {settings.speak=e.target.checked;write(STORE.settings,settings);});
   $("#voiceToggle").addEventListener("change", e => {settings.voice=e.target.checked;write(STORE.settings,settings);});
@@ -119,12 +127,52 @@
     if(n.includes("quem e voce")||n.includes("seu nome"))return "Sou a Aurora, tua assistente pessoal. Nesta versão posso guardar memórias, organizar tarefas, falar respostas e executar comandos locais.";
     return "Ainda não tenho um modelo de linguagem conectado para responder livremente a isso. Posso, no entanto, ajudar com tarefas, memórias, data e hora. Escreve “ajuda” para ver os comandos disponíveis.\n\nQuando quiseres, podemos preparar uma conexão opcional com um modelo de IA — alguns serviços oferecem cotas gratuitas, mas dependem das regras e disponibilidade do fornecedor.";
   }
+  function availablePortugueseVoices() {
+    if (!("speechSynthesis" in window)) return [];
+    return window.speechSynthesis.getVoices().filter(v => /^pt(-|_)/i.test(v.lang));
+  }
+  function recommendedVoice(voices) {
+    const br = voices.filter(v => /^pt[-_]br/i.test(v.lang));
+    const pool = br.length ? br : voices;
+    const feminineHints = /female|feminina|francisca|luciana|camila|fernanda|mariana|vitoria|vit[oó]ria|joana|google português do brasil/i;
+    return pool.find(v => feminineHints.test(v.name)) || pool.find(v => /google/i.test(v.name)) || pool[0] || null;
+  }
+  function populateVoiceSelect() {
+    const select = $("#voiceSelect");
+    if (!select || !("speechSynthesis" in window)) return;
+    const voices = availablePortugueseVoices();
+    const current = settings.voiceName || "auto";
+    select.replaceChildren();
+    const auto = document.createElement("option");
+    auto.value = "auto"; auto.textContent = "Voz brasileira recomendada";
+    select.append(auto);
+    voices.forEach(v => {
+      const option = document.createElement("option");
+      option.value = v.name;
+      option.textContent = v.name + " (" + v.lang + ")";
+      select.append(option);
+    });
+    select.value = current;
+    if (select.value !== current) select.value = "auto";
+  }
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.addEventListener("voiceschanged", populateVoiceSelect);
+    populateVoiceSelect();
+  }
   function speak(text) {
-    if(!settings.speak||!("speechSynthesis" in window))return;
+    if (!settings.speak || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);u.lang="pt-BR";u.rate=1.02;u.pitch=1.02;
-    const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>v.lang.toLowerCase().startsWith("pt-br"))||voices.find(v=>v.lang.toLowerCase().startsWith("pt"));
-    if(voice)u.voice=voice;window.speechSynthesis.speak(u);
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pt-BR";
+    // Slightly slower and warmer delivery for Aurora's conversational personality.
+    u.rate = 0.94;
+    u.pitch = 1.12;
+    const voices = availablePortugueseVoices();
+    const preferred = settings.voiceName && settings.voiceName !== "auto"
+      ? voices.find(v => v.name === settings.voiceName)
+      : recommendedVoice(voices);
+    if (preferred) { u.voice = preferred; u.lang = preferred.lang; }
+    window.speechSynthesis.speak(u);
   }
   function send(text) {
     const value=text.trim();if(!value)return;
