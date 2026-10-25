@@ -193,7 +193,6 @@
     try {
       const recent = history.slice(0, -1).filter(m => m.role === "user" || m.role === "assistant")
         .slice(-12).map(m => ({role:m.role, content:m.text}));
-      recent.push({role:"user", content:value});
       const res = await fetch(settings.aiEndpoint + "/chat", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({messages:recent})
