@@ -368,3 +368,10 @@ dialog::backdrop{background:#000e!important}
 .api-status[data-state="success"]{border-color:#547d4e;color:#b9e5a9}
 .api-status[data-state="error"]{border-color:#9b5555;color:#ffbaba}
 @media(max-width:480px){.api-card{padding:15px;border-radius:17px}.api-card-heading h3{font-size:17px}.api-input{font-size:12px}}
+
+/* Voice playback controls */
+.speech-toolbar{position:fixed;z-index:4;bottom:calc(125px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 28px));display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;padding:8px 10px;background:#090909;border:1px solid #493817;border-radius:16px;box-shadow:0 6px 24px #0008;color:#d4af37;font-size:11px}
+.speech-toolbar button,.speech-toolbar select{background:#111;color:#d4af37;border:1px solid #493817;border-radius:9px;padding:7px 9px;font:inherit}
+.speech-toolbar label{display:flex;align-items:center;gap:5px}
+.speech-toolbar button:active{background:#493817}
+@media(max-width:390px){.speech-toolbar{gap:5px;padding:7px}.speech-toolbar span{display:none}.speech-toolbar button{padding:7px;font-size:10px}.speech-toolbar label{font-size:10px}}
