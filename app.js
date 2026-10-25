@@ -198,9 +198,10 @@
         body:JSON.stringify({messages:recent})
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || typeof data.reply !== "string") throw new Error(data.error || "Não foi possível obter resposta da IA.");
-      history[history.length-1] = {...history[history.length-1], text:data.reply};
-      write(STORE.messages,history);renderMessages();speak(data.reply);
+      const aiReply = typeof data.reply === "string" ? data.reply : (typeof data.answer === "string" ? data.answer : "");
+      if (!res.ok || !aiReply.trim()) throw new Error(data.error || "A API não retornou uma resposta válida.");
+      history[history.length-1] = {...history[history.length-1], text:aiReply.trim()};
+      write(STORE.messages,history);renderMessages();speak(aiReply.trim());
     } catch (err) {
       const message = err && err.message ? err.message : "Falha de conexão com a IA.";
       history[history.length-1] = {...history[history.length-1], text:"Não consegui conectar à IA agora. " + message + "\n\nConfira o endereço da API nas Configurações e tente novamente."};
