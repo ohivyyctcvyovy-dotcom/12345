@@ -3,6 +3,7 @@ package com.leitor.tela
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.ContentValues
 import android.graphics.PixelFormat
 import android.graphics.Bitmap
@@ -659,11 +660,19 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 4, 8, 4)
                 setOnClickListener { saveDiagnosticFiles() }
             }
+            val shareDiagnostic = Button(this).apply {
+                this.text = "COMPARTILHAR PRINT + RELATÓRIO"
+                textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 4, 8, 4)
+                setOnClickListener { shareDiagnosticFiles() }
+            }
             val close = Button(this).apply { this.text = "FECHAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster)
-            if (pendingDiagnosticBitmap != null) panel.addView(saveDiagnostic)
+            if (pendingDiagnosticBitmap != null) {
+                panel.addView(saveDiagnostic)
+                panel.addView(shareDiagnostic)
+            }
             panel.addView(close)
             resultWindow = panel
             val p = WindowManager.LayoutParams(
@@ -680,7 +689,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     }
 
 
-    private fun saveDiagnosticFiles() {
+    private fun saveDiagnosticFiles(): Uri? {
         val bitmap = pendingDiagnosticBitmap
         if (bitmap == null || bitmap.isRecycled) {
             Toast.makeText(this, "Não há captura disponível para salvar.", Toast.LENGTH_LONG).show()
@@ -723,8 +732,26 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 contentResolver.update(reportUri, readyReport, null, null)
             }
             Toast.makeText(this, "Print salvo em Imagens/Pictures > LeitorDeTela. Relatório em Downloads > LeitorDeTela.", Toast.LENGTH_LONG).show()
+            return imageUri
         } catch (error: Exception) {
             Toast.makeText(this, "Erro ao salvar diagnóstico: ${error.message ?: "erro desconhecido"}", Toast.LENGTH_LONG).show()
+            return null
+        }
+    }
+
+    private fun shareDiagnosticFiles() {
+        val imageUri = saveDiagnosticFiles() ?: return
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, imageUri)
+            putExtra(Intent.EXTRA_TEXT, "Diagnóstico do Leitor de Tela\\n\\n$lastDiagnosticReport")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = android.content.ClipData.newUri(contentResolver, "Print do Leitor de Tela", imageUri)
+        }
+        try {
+            startActivity(Intent.createChooser(shareIntent, "Enviar diagnóstico").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (error: Exception) {
+            Toast.makeText(this, "O print foi salvo, mas não consegui abrir o compartilhamento: ${error.message ?: "erro"}", Toast.LENGTH_LONG).show()
         }
     }
 
