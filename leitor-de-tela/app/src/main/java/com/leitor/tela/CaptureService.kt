@@ -35,7 +35,7 @@ import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
-import com.google.mlkit.nl.translate.DownloadConditions
+import com.google.mlkit.common.model.DownloadConditions
 import com.google.android.gms.tasks.Tasks
 import java.util.Locale
 
@@ -290,10 +290,10 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 .addOnSuccessListener { results ->
                     val bestText = results.maxByOrNull { candidate ->
                         val value = candidate.text
-                        val hangul = value.count { it in '\\uAC00'..'\\uD7A3' }
-                        val kana = value.count { it in '\\u3040'..'\\u30FF' }
+                        val hangul = value.count { it in '\uAC00'..'\uD7A3' }
+                        val kana = value.count { it in '\u3040'..'\u30FF' }
                         val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
-                        val cjk = value.count { it in '\\u4E00'..'\\u9FFF' }
+                        val cjk = value.count { it in '\u4E00'..'\u9FFF' }
                         maxOf(hangul * 4 + kana * 4 + cjk * 2, latin)
                     }?.text?.trim().orEmpty()
 
@@ -349,12 +349,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                                 translator.close()
                             }
                             .addOnFailureListener {
-                                showResult("Não consegui traduzir este texto. Texto original:\\n$originalText", true)
+                                showResult("Não consegui traduzir este texto. Texto original:\n$originalText", true)
                                 translator.close()
                             }
                     }
                     .addOnFailureListener {
-                        showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\\n\\nTexto original:\\n$originalText", false)
+                        showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\n\nTexto original:\n$originalText", false)
                         translator.close()
                     }
             }
