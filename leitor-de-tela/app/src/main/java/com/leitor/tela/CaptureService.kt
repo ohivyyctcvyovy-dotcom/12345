@@ -165,7 +165,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val density = resources.displayMetrics.density
-            val label = "Arraste para marcar a área • toque duas vezes para cancelar"
+            val label = "Arraste para marcar a área desejada"
             val labelWidth = hintPaint.measureText(label)
             val box = RectF(12f * density, 48f * density, labelWidth + 32f * density, 82f * density)
             canvas.drawRoundRect(box, 10f * density, 10f * density, hintBg)
@@ -207,6 +207,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     dragging = false
                     invalidate()
                     return true
+                }
             }
             return true
         }
@@ -264,7 +265,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
             val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
             Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top).also {
-                if (it !== capturedBitmap) bitmapForOcr.recycle()
+                if (it !== capturedBitmap) capturedBitmap.recycle()
             }
         } else capturedBitmap
         try {
@@ -279,7 +280,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     showResult("Não foi possível reconhecer o texto. Tente outra captura.", false)
                 }
                 .addOnCompleteListener {
-                    capturedBitmap.recycle()
+                    if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
                     recognizer.close()
                 }
         } catch (_: Exception) {
@@ -290,6 +291,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
     private fun showResult(text: String, autoSpeak: Boolean) {
         handler.post {
+            floatingButton?.visibility = View.VISIBLE
             removeResult()
             val panel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
