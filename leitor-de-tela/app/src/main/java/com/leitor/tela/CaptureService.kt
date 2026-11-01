@@ -135,6 +135,14 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val button = Button(this).apply {
             text = "LER"
             textSize = 13f
+            isAllCaps = false
+            setTextColor(0xFFFFD778.toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF171719.toInt())
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), 0xFFD6AD55.toInt())
+            }
+            elevation = dp(6).toFloat()
             setOnClickListener {
                 this.visibility = View.INVISIBLE
                 showLanguagePicker()
@@ -251,7 +259,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             // Remover a própria janela durante o toque pode interromper o fluxo no Android.
             handler.post {
                 removeSelectionOverlay()
-                handler.postDelayed({ captureOnce() }, 450)
+                handler.postDelayed({ captureOnce() }, 120)
             }
         }
         frame.addView(selector, FrameLayout.LayoutParams(-1, -1))
@@ -457,7 +465,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     style = Paint.Style.FILL
                 }
                 val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.RED
+                    color = 0xFFFFD166.toInt()
                     style = Paint.Style.STROKE
                     strokeWidth = maxOf(5f, diagnostic.width * 0.003f)
                 }
