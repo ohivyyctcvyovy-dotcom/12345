@@ -6,6 +6,10 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.media.projection.MediaProjection
@@ -13,6 +17,9 @@ import android.media.projection.MediaProjectionManager
 import android.os.*
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.widget.FrameLayout
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -39,6 +46,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private var display: android.hardware.display.VirtualDisplay? = null
     private var floatingButton: Button? = null
     private var resultWindow: LinearLayout? = null
+    private var selectionWindow: FrameLayout? = null
+    private var selectedArea: RectF? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var speechRate = 1.0f
@@ -87,8 +96,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             text = "LER"
             textSize = 13f
             setOnClickListener {
-                this.visibility = android.view.View.INVISIBLE
-                handler.postDelayed({ captureOnce(); this.visibility = android.view.View.VISIBLE }, 350)
+                this.visibility = View.INVISIBLE
+                showSelectionOverlay()
             }
         }
         floatingButton = button
@@ -99,6 +108,108 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.END; x = 18; y = 220 }
         wm.addView(button, params)
+    }
+
+    private fun showSelectionOverlay() {
+        removeSelectionOverlay()
+        val frame = FrameLayout(this)
+        val selector = SelectionView(this) { area ->
+            selectedArea = area
+            removeSelectionOverlay()
+            handler.postDelayed({ captureOnce() }, 300)
+        }
+        frame.addView(selector, FrameLayout.LayoutParams(-1, -1))
+        selectionWindow = frame
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        )
+        try {
+            wm.addView(frame, params)
+        } catch (_: Exception) {
+            selectionWindow = null
+            floatingButton?.visibility = View.VISIBLE
+            showResult("Não consegui abrir a seleção. Confira a permissão de aparecer sobre outros aplicativos.", false)
+        }
+    }
+
+    private fun removeSelectionOverlay() {
+        selectionWindow?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        selectionWindow = null
+    }
+
+    private inner class SelectionView(context: Context, val onSelected: (RectF) -> Unit) : View(context) {
+        private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFFFD166.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = 5f
+        }
+        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x22FFD166
+            style = Paint.Style.FILL
+        }
+        private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 16f * resources.displayMetrics.density
+        }
+        private val hintBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x99000000.toInt() }
+        private var startX = 0f
+        private var startY = 0f
+        private var currentX = 0f
+        private var currentY = 0f
+        private var dragging = false
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val density = resources.displayMetrics.density
+            val label = "Arraste para marcar a área • toque duas vezes para cancelar"
+            val labelWidth = hintPaint.measureText(label)
+            val box = RectF(12f * density, 48f * density, labelWidth + 32f * density, 82f * density)
+            canvas.drawRoundRect(box, 10f * density, 10f * density, hintBg)
+            canvas.drawText(label, 22f * density, 70f * density, hintPaint)
+            if (dragging) {
+                val rect = RectF(startX, startY, currentX, currentY).apply { sort() }
+                canvas.drawRoundRect(rect, 5f * density, 5f * density, fill)
+                canvas.drawRoundRect(rect, 5f * density, 5f * density, outline)
+            }
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.x; startY = event.y
+                    currentX = event.x; currentY = event.y
+                    dragging = true
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    currentX = event.x; currentY = event.y
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    currentX = event.x; currentY = event.y
+                    dragging = false
+                    val rect = RectF(startX, startY, currentX, currentY).apply { sort() }
+                    if (rect.width() >= 20f && rect.height() >= 20f) {
+                        onSelected(rect)
+                    } else {
+                        removeSelectionOverlay()
+                        floatingButton?.visibility = View.VISIBLE
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    dragging = false
+                    invalidate()
+                    return true
+            }
+            return true
+        }
     }
 
     private fun captureOnce(attempt: Int = 0) {
@@ -143,9 +254,22 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         }
 
         val capturedBitmap = bitmap ?: return
+        val area = selectedArea
+        selectedArea = null
+        val bitmapForOcr = if (area != null) {
+            val sx = capturedBitmap.width.toFloat() / resources.displayMetrics.widthPixels.toFloat()
+            val sy = capturedBitmap.height.toFloat() / resources.displayMetrics.heightPixels.toFloat()
+            val left = (area.left * sx).toInt().coerceIn(0, capturedBitmap.width - 1)
+            val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
+            val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
+            val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
+            Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top).also {
+                if (it !== capturedBitmap) bitmapForOcr.recycle()
+            }
+        } else capturedBitmap
         try {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            recognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
+            recognizer.process(InputImage.fromBitmap(bitmapForOcr, 0))
                 .addOnSuccessListener { result ->
                     val recognizedText = result.text.trim()
                     if (recognizedText.isBlank()) showResult("Não encontrei texto nesta tela.", false)
@@ -159,7 +283,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     recognizer.close()
                 }
         } catch (_: Exception) {
-            if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
+            if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
             showResult("Ocorreu um erro ao reconhecer a imagem. Tente novamente.", false)
         }
     }
@@ -170,7 +294,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val panel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(16, 14, 16, 14)
-                setBackgroundColor(0xFF171717.toInt())
+                setBackgroundColor(0x66000000.toInt())
             }
             val heading = TextView(this).apply {
                 this.text = "TEXTO RECONHECIDO"
@@ -185,11 +309,11 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 setPadding(0, 10, 0, 10)
             }
             val scroll = ScrollView(this).apply { addView(body) }
-            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; setOnClickListener { speak(text) } }
-            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; setOnClickListener { tts?.stop() } }
-            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val close = Button(this).apply { this.text = "FECHAR"; setOnClickListener { removeResult() } }
+            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speak(text) } }
+            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { tts?.stop() } }
+            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val close = Button(this).apply { this.text = "FECHAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster); panel.addView(close)
@@ -243,6 +367,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         removeResult()
+        removeSelectionOverlay()
         floatingButton?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         display?.release()
         imageReader?.close()
