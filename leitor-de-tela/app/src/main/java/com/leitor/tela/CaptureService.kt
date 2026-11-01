@@ -4,6 +4,8 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.media.projection.MediaProjection
@@ -99,23 +101,66 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         wm.addView(button, params)
     }
 
-    private fun captureOnce() {
-        val image = imageReader?.acquireLatestImage()
-        if (image == null) { showResult("Não consegui obter a captura. Tente novamente.", false); return }
+    private fun captureOnce(attempt: Int = 0) {
+        val image = try { imageReader?.acquireLatestImage() } catch (_: Exception) { null }
+        if (image == null) {
+            if (attempt < 10) {
+                handler.postDelayed({ captureOnce(attempt + 1) }, 180)
+            } else {
+                showResult("Não consegui obter uma imagem da tela. Tente novamente e confira se autorizou o compartilhamento da tela.", false)
+            }
+            return
+        }
+
+        var bitmap: Bitmap? = null
         try {
-            val input = InputImage.fromMediaImage(image, 0)
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            recognizer.process(input)
-                .addOnSuccessListener { result ->
-                    val text = result.text.trim()
-                    if (text.isBlank()) showResult("Não encontrei texto nesta tela.", false)
-                    else showResult(text, true)
+            val plane = image.planes.firstOrNull()
+                ?: throw IllegalStateException("A captura não contém uma camada de imagem")
+            val buffer = plane.buffer.duplicate()
+            val width = image.width
+            val height = image.height
+            val rowStride = plane.rowStride
+            val pixelStride = plane.pixelStride
+            val pixels = IntArray(width * height)
+
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val offset = y * rowStride + x * pixelStride
+                    val red = buffer.get(offset).toInt() and 0xFF
+                    val green = buffer.get(offset + 1).toInt() and 0xFF
+                    val blue = buffer.get(offset + 2).toInt() and 0xFF
+                    val alpha = buffer.get(offset + 3).toInt() and 0xFF
+                    pixels[y * width + x] = Color.argb(alpha, red, green, blue)
                 }
-                .addOnFailureListener { showResult("Não foi possível reconhecer o texto. Tente outra captura.", false) }
-                .addOnCompleteListener { image.close(); recognizer.close() }
+            }
+
+            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
         } catch (_: Exception) {
-            image.close()
-            showResult("Ocorreu um erro ao ler a captura.", false)
+            showResult("Não foi possível preparar a imagem capturada. Tente novamente.", false)
+        } finally {
+            try { image.close() } catch (_: Exception) {}
+        }
+
+        val capturedBitmap = bitmap ?: return
+        try {
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            recognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
+                .addOnSuccessListener { result ->
+                    val recognizedText = result.text.trim()
+                    if (recognizedText.isBlank()) showResult("Não encontrei texto nesta tela.", false)
+                    else showResult(recognizedText, true)
+                }
+                .addOnFailureListener {
+                    showResult("Não foi possível reconhecer o texto. Tente outra captura.", false)
+                }
+                .addOnCompleteListener {
+                    capturedBitmap.recycle()
+                    recognizer.close()
+                }
+        } catch (_: Exception) {
+            if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
+            showResult("Ocorreu um erro ao reconhecer a imagem. Tente novamente.", false)
         }
     }
 
