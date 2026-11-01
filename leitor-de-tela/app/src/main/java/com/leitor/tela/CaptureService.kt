@@ -693,7 +693,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val bitmap = pendingDiagnosticBitmap
         if (bitmap == null || bitmap.isRecycled) {
             Toast.makeText(this, "Não há captura disponível para salvar.", Toast.LENGTH_LONG).show()
-            return
+            return null
         }
         val stamp = System.currentTimeMillis()
         try {
