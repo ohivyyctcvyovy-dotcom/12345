@@ -247,8 +247,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val selector = SelectionView(this) { area ->
             selectedArea = RectF(area)
             lastSelectedArea = RectF(area)
-            removeSelectionOverlay()
-            handler.postDelayed({ captureOnce() }, 300)
+            // Remova a janela depois que o evento ACTION_UP terminar de ser processado.
+            // Remover a própria janela durante o toque pode interromper o fluxo no Android.
+            handler.post {
+                removeSelectionOverlay()
+                handler.postDelayed({ captureOnce() }, 450)
+            }
         }
         frame.addView(selector, FrameLayout.LayoutParams(-1, -1))
         selectionWindow = frame
