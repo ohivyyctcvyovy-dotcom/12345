@@ -317,22 +317,45 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             // Um reconhecedor pode falhar sem impedir que os outros entreguem o texto.
             Tasks.whenAllComplete(latinTask, japaneseTask, koreanTask)
                 .addOnSuccessListener { completed ->
-                    val results = completed.mapNotNull { task ->
-                        if (task.isSuccessful) task.result as? Text else null
+                    // Preserve qual reconhecedor produziu cada texto. Isso é importante:
+                    // frases japonesas compostas principalmente por kanji podem não ter kana,
+                    // então não devem depender apenas da identificação automática do idioma.
+                    val latinText = if (completed[0].isSuccessful) {
+                        (completed[0].result as? Text)?.text?.trim().orEmpty()
+                    } else ""
+                    val japaneseText = if (completed[1].isSuccessful) {
+                        (completed[1].result as? Text)?.text?.trim().orEmpty()
+                    } else ""
+                    val koreanText = if (completed[2].isSuccessful) {
+                        (completed[2].result as? Text)?.text?.trim().orEmpty()
+                    } else ""
+
+                    val japaneseChars = japaneseText.any {
+                        it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF'
                     }
-                    val bestText = results.maxByOrNull { candidate ->
-                        val value = candidate.text
-                        val hangul = value.count { it in '\uAC00'..'\uD7A3' }
-                        val kana = value.count { it in '\u3040'..'\u30FF' }
-                        val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
-                        val cjk = value.count { it in '\u4E00'..'\u9FFF' }
-                        maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
-                    }?.text?.trim().orEmpty()
+                    val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
+
+                    val selected = when {
+                        koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
+                        japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
+                        else -> {
+                            val candidates = listOf(latinText, japaneseText, koreanText).filter { it.isNotBlank() }
+                            val best = candidates.maxByOrNull { value ->
+                                val hangul = value.count { it in '\uAC00'..'\uD7A3' }
+                                val kana = value.count { it in '\u3040'..'\u30FF' }
+                                val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
+                                val cjk = value.count { it in '\u4E00'..'\u9FFF' }
+                                maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
+                            }.orEmpty()
+                            Pair(best, null)
+                        }
+                    }
+                    val bestText = selected.first
 
                     if (bestText.isBlank()) {
                         showResult("Não encontrei texto nesta área. Tente selecionar uma região maior e com letras nítidas.", false)
                     } else {
-                        detectAndTranslate(bestText)
+                        detectAndTranslate(bestText, selected.second)
                     }
                 }
                 .addOnFailureListener {
@@ -350,7 +373,14 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun detectAndTranslate(originalText: String) {
+    private fun detectAndTranslate(originalText: String, preferredLanguage: String? = null) {
+        // Quando o reconhecedor especializado detecta caracteres japoneses ou coreanos,
+        // respeite a origem do OCR. O Language ID costuma confundir textos curtos
+        // compostos por kanji ou retornar "und".
+        if (preferredLanguage == "ja" || preferredLanguage == "ko") {
+            translateFromLanguage(originalText, preferredLanguage)
+            return
+        }
         val languageIdentifier = LanguageIdentification.getClient()
         languageIdentifier.identifyLanguage(originalText)
             .addOnSuccessListener { detectedCode ->
