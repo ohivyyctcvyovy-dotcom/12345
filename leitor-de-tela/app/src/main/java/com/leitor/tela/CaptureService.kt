@@ -140,11 +140,11 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 setPadding(0, 10, 0, 10)
             }
             val scroll = ScrollView(this).apply { addView(body) }
-            val listen = Button(this).apply { text = "OUVIR / CONTINUAR"; setOnClickListener { speak(text) } }
-            val pause = Button(this).apply { text = "PAUSAR VOZ"; setOnClickListener { tts?.stop() } }
-            val slower = Button(this).apply { text = "FALAR MAIS DEVAGAR"; setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val faster = Button(this).apply { text = "FALAR MAIS RÁPIDO"; setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val close = Button(this).apply { text = "FECHAR"; setOnClickListener { removeResult() } }
+            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; setOnClickListener { speak(text) } }
+            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; setOnClickListener { tts?.stop() } }
+            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val close = Button(this).apply { this.text = "FECHAR"; setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster); panel.addView(close)
