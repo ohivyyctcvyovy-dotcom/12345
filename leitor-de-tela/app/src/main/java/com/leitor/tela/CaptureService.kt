@@ -422,16 +422,21 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
             // OCR adicional da tela inteira: usado somente se o recorte não encontrar
             // caracteres japoneses, evitando perder texto por diferenças de coordenadas.
-            val fullJapaneseTask = if (selectedOcrLanguage == "ja" && bitmapForOcr !== capturedBitmap) {
+            val fullJapaneseTask = if (bitmapForOcr !== capturedBitmap) {
                 japaneseRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
+            } else null
+            val fullKoreanTask = if (bitmapForOcr !== capturedBitmap) {
+                koreanRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
             } else null
 
             Tasks.whenAllComplete(
-                *listOfNotNull(latinTask, japaneseTask, koreanTask, fullJapaneseTask).toTypedArray()
+                *listOfNotNull(latinTask, japaneseTask, koreanTask, fullJapaneseTask, fullKoreanTask).toTypedArray()
             ).addOnSuccessListener { completed ->
                 val latinText = if (latinTask.isSuccessful) latinTask.result?.text?.trim().orEmpty() else ""
                 val cropJapaneseText = if (japaneseTask.isSuccessful) japaneseTask.result?.text?.trim().orEmpty() else ""
-                val koreanText = if (koreanTask.isSuccessful) koreanTask.result?.text?.trim().orEmpty() else ""
+                val cropKoreanText = if (koreanTask.isSuccessful) koreanTask.result?.text?.trim().orEmpty() else ""
+                val fullKoreanText = if (fullKoreanTask?.isSuccessful == true) fullKoreanTask.result?.text?.trim().orEmpty() else ""
+                val koreanText = cropKoreanText.ifBlank { fullKoreanText }
                 val fullJapaneseText = if (fullJapaneseTask?.isSuccessful == true) {
                     fullJapaneseTask.result?.text?.trim().orEmpty()
                 } else ""
@@ -490,7 +495,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         // Quando o reconhecedor especializado detecta caracteres japoneses ou coreanos,
         // respeite a origem do OCR. O Language ID costuma confundir textos curtos
         // compostos por kanji ou retornar "und".
-        if (preferredLanguage == "ja" || preferredLanguage == "ko") {
+        if (preferredLanguage == "ja" || preferredLanguage == "ko" || preferredLanguage == "en") {
             translateFromLanguage(originalText, preferredLanguage)
             return
         }
