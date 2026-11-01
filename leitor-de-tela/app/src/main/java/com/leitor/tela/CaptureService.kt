@@ -267,7 +267,6 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             showResult("Não consegui abrir a seleção. Confira a permissão de aparecer sobre outros aplicativos.", false)
         }
     }
-
     private fun removeSelectionOverlay() {
         selectionWindow?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         selectionWindow = null
@@ -481,10 +480,13 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
             // OCR adicional da tela inteira: usado somente se o recorte não encontrar
             // caracteres japoneses, evitando perder texto por diferenças de coordenadas.
-            val fullJapaneseTask = if (bitmapForOcr !== capturedBitmap) {
+            // Evite executar OCR da tela inteira em paralelo quando o usuário
+            // escolheu explicitamente um idioma. Em aparelhos com pouca memória isso
+            // duplicava o trabalho e podia encerrar o processo antes da tradução.
+            val fullJapaneseTask = if (bitmapForOcr !== capturedBitmap && selectedOcrLanguage == null) {
                 japaneseRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
             } else null
-            val fullKoreanTask = if (bitmapForOcr !== capturedBitmap) {
+            val fullKoreanTask = if (bitmapForOcr !== capturedBitmap && selectedOcrLanguage == null) {
                 koreanRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
             } else null
 
@@ -537,8 +539,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     lastDiagnosticReport += "Erros dos motores: ${if (errors.isBlank()) "nenhum erro técnico retornado" else errors}\n"
                     showResult(
                         "O OCR não encontrou texto. $diagnostic\n\n" +
-                            "Imagem capturada: ${capturedBitmap.width} × ${capturedBitmap.height}px. " +
-                            "Área analisada: ${scaledCrop.width} × ${scaledCrop.height}px.\n\n" +
+                            "Imagem capturada: ${capturedBitmap.width} × ${capturedBitmap.height}px. " +                            "Área analisada: ${scaledCrop.width} × ${scaledCrop.height}px.\n\n" +
                             "Marque uma área maior, incluindo todo o texto, e tente novamente.",
                         false
                     )
