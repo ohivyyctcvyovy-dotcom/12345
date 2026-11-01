@@ -386,91 +386,102 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val area = selectedArea
         selectedArea = null
         val bitmapForOcr = if (area != null) {
-            val screenWidth = captureScreenWidth.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
-            val screenHeight = captureScreenHeight.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+            val screenWidth = captureScreenWidth.takeIf { it > 0 } ?: capturedBitmap.width
+            val screenHeight = captureScreenHeight.takeIf { it > 0 } ?: capturedBitmap.height
             val sx = capturedBitmap.width.toFloat() / screenWidth.toFloat()
             val sy = capturedBitmap.height.toFloat() / screenHeight.toFloat()
             val left = (area.left * sx).toInt().coerceIn(0, capturedBitmap.width - 1)
             val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
             val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
-            Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top).also {
-                if (it !== capturedBitmap) capturedBitmap.recycle()
-            }
+            Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top)
         } else capturedBitmap
+
+        // Textos japoneses em jogos e imagens costumam ser pequenos. Amplie o recorte
+        // para melhorar o OCR. Preserve também a captura inteira para recuperar casos
+        // em que as coordenadas do recorte variem entre fabricantes/barras do sistema.
+        val scaledCrop = if (bitmapForOcr !== capturedBitmap &&
+            (bitmapForOcr.width < 1400 || bitmapForOcr.height < 900)) {
+            val factor = minOf(3f, maxOf(1.5f, 1400f / bitmapForOcr.width))
+            Bitmap.createScaledBitmap(
+                bitmapForOcr,
+                (bitmapForOcr.width * factor).toInt().coerceAtLeast(1),
+                (bitmapForOcr.height * factor).toInt().coerceAtLeast(1),
+                true
+            )
+        } else bitmapForOcr
+
         try {
             val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
             val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-            val image = InputImage.fromBitmap(bitmapForOcr, 0)
-            val latinTask = latinRecognizer.process(image)
-            val japaneseTask = japaneseRecognizer.process(image)
-            val koreanTask = koreanRecognizer.process(image)
+            val cropImage = InputImage.fromBitmap(scaledCrop, 0)
+            val latinTask = latinRecognizer.process(cropImage)
+            val japaneseTask = japaneseRecognizer.process(cropImage)
+            val koreanTask = koreanRecognizer.process(cropImage)
 
-            // Um reconhecedor pode falhar sem impedir que os outros entreguem o texto.
-            Tasks.whenAllComplete(latinTask, japaneseTask, koreanTask)
-                .addOnSuccessListener { completed ->
-                    // Preserve qual reconhecedor produziu cada texto. Isso é importante:
-                    // frases japonesas compostas principalmente por kanji podem não ter kana,
-                    // então não devem depender apenas da identificação automática do idioma.
-                    val latinText = if (completed[0].isSuccessful) {
-                        (completed[0].result as? Text)?.text?.trim().orEmpty()
-                    } else ""
-                    val japaneseText = if (completed[1].isSuccessful) {
-                        (completed[1].result as? Text)?.text?.trim().orEmpty()
-                    } else ""
-                    val koreanText = if (completed[2].isSuccessful) {
-                        (completed[2].result as? Text)?.text?.trim().orEmpty()
-                    } else ""
+            // OCR adicional da tela inteira: usado somente se o recorte não encontrar
+            // caracteres japoneses, evitando perder texto por diferenças de coordenadas.
+            val fullJapaneseTask = if (selectedOcrLanguage == "ja" && bitmapForOcr !== capturedBitmap) {
+                japaneseRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
+            } else null
 
-                    val japaneseChars = japaneseText.any {
-                        it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF'
-                    }
-                    val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
+            Tasks.whenAllComplete(
+                *listOfNotNull(latinTask, japaneseTask, koreanTask, fullJapaneseTask).toTypedArray()
+            ).addOnSuccessListener { completed ->
+                val latinText = if (latinTask.isSuccessful) latinTask.result?.text?.trim().orEmpty() else ""
+                val cropJapaneseText = if (japaneseTask.isSuccessful) japaneseTask.result?.text?.trim().orEmpty() else ""
+                val koreanText = if (koreanTask.isSuccessful) koreanTask.result?.text?.trim().orEmpty() else ""
+                val fullJapaneseText = if (fullJapaneseTask?.isSuccessful == true) {
+                    fullJapaneseTask.result?.text?.trim().orEmpty()
+                } else ""
+                val japaneseText = cropJapaneseText.ifBlank { fullJapaneseText }
 
-                    val selected = when {
-                        selectedOcrLanguage == "ja" -> Pair(
-                            japaneseText.ifBlank { latinText.filter { ch ->
-                                ch in '\u3040'..'\u30FF' || ch in '\u4E00'..'\u9FFF'
-                            } }, "ja"
-                        )
-                        selectedOcrLanguage == "ko" -> Pair(
-                            koreanText.ifBlank { latinText.filter { ch -> ch in '\uAC00'..'\uD7A3' } }, "ko"
-                        )
-                        selectedOcrLanguage == "en" -> Pair(latinText, "en")
-                        koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
-                        japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
-                        else -> {
-                            val candidates = listOf(latinText, japaneseText, koreanText).filter { it.isNotBlank() }
-                            val best = candidates.maxByOrNull { value ->
-                                val hangul = value.count { it in '\uAC00'..'\uD7A3' }
-                                val kana = value.count { it in '\u3040'..'\u30FF' }
-                                val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
-                                val cjk = value.count { it in '\u4E00'..'\u9FFF' }
-                                maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
-                            }.orEmpty()
-                            Pair(best, null)
-                        }
-                    }
-                    val bestText = selected.first
+                val japaneseChars = japaneseText.any {
+                    it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF'
+                }
+                val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
 
-                    if (bestText.isBlank()) {
-                        showResult("Não encontrei texto nesta área. Tente selecionar uma região maior e com letras nítidas.", false)
-                    } else {
-                        detectAndTranslate(bestText, selected.second)
+                val selected = when {
+                    selectedOcrLanguage == "ja" -> Pair(japaneseText, "ja")
+                    selectedOcrLanguage == "ko" -> Pair(koreanText, "ko")
+                    selectedOcrLanguage == "en" -> Pair(latinText, "en")
+                    koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
+                    japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
+                    else -> {
+                        val candidates = listOf(latinText, japaneseText, koreanText).filter { it.isNotBlank() }
+                        val best = candidates.maxByOrNull { value ->
+                            val hangul = value.count { it in '\uAC00'..'\uD7A3' }
+                            val kana = value.count { it in '\u3040'..'\u30FF' }
+                            val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
+                            val cjk = value.count { it in '\u4E00'..'\u9FFF' }
+                            maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
+                        }.orEmpty()
+                        Pair(best, null)
                     }
                 }
-                .addOnFailureListener {
-                    showResult("Não foi possível reconhecer o texto. Tente outra captura.", false)
+                if (selected.first.isBlank()) {
+                    showResult(
+                        "Não consegui reconhecer o texto nessa captura. Tente marcar uma área maior, aproximar o conteúdo e evitar reflexos. Se for japonês, selecione novamente 'Japonês → Português'.",
+                        false
+                    )
+                } else {
+                    detectAndTranslate(selected.first, selected.second)
                 }
-                .addOnCompleteListener {
-                    if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
-                    latinRecognizer.close()
-                    japaneseRecognizer.close()
-                    koreanRecognizer.close()
-                }
+            }.addOnFailureListener {
+                showResult("O reconhecimento falhou nesta imagem. Tente selecionar novamente uma região maior.", false)
+            }.addOnCompleteListener {
+                if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
+                if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
+                if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
+                latinRecognizer.close()
+                japaneseRecognizer.close()
+                koreanRecognizer.close()
+            }
         } catch (_: Exception) {
-            if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
+            if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
+            if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
+            if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
             showResult("Ocorreu um erro ao reconhecer a imagem. Tente novamente.", false)
         }
     }
