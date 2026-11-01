@@ -429,12 +429,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
             val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
-            lastDiagnosticReport = "Captura: \${capturedBitmap.width} × \${capturedBitmap.height}px\n" +
-                "Tela de referência: \${screenWidth} × \${screenHeight}px\n" +
-                "Fator de escala: x=\${"%.3f".format(sx)}, y=\${"%.3f".format(sy)}\n" +
-                "Seleção na tela: \${area.left.toInt()},\${area.top.toInt()} até \${area.right.toInt()},\${area.bottom.toInt()}\n" +
-                "Recorte aplicado: $left,$top até $right,$bottom (\${right-left} × \${bottom-top}px)\n" +
-                "Idioma escolhido: \${selectedOcrLanguage ?: "automático"}\n"
+            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\n" +
+                "Tela de referência: ${screenWidth} × ${screenHeight}px\n" +
+                "Fator de escala: x=${"%.3f".format(sx)}, y=${"%.3f".format(sy)}\n" +
+                "Seleção na tela: ${area.left.toInt()},${area.top.toInt()} até ${area.right.toInt()},${area.bottom.toInt()}\n" +
+                "Recorte aplicado: $left,$top até $right,$bottom (${right-left} × ${bottom-top}px)\n" +
+                "Idioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
             pendingDiagnosticBitmap?.let { diagnostic ->
                 val canvas = Canvas(diagnostic)
                 val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -452,7 +452,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             }
             Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top)
         } else {
-            lastDiagnosticReport = "Captura: \${capturedBitmap.width} × \${capturedBitmap.height}px\nIdioma escolhido: \${selectedOcrLanguage ?: "automático"}\n"
+            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\nIdioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
             capturedBitmap
         }
 
@@ -494,13 +494,13 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
             val recognized = text.orEmpty().trim()
             if (recognized.isBlank()) {
-                lastDiagnosticReport += "\nOCR: nenhum texto reconhecido. Idiomas tentados: \${languages.joinToString()}\n"
+                lastDiagnosticReport += "\nOCR: nenhum texto reconhecido. Idiomas tentados: ${languages.joinToString()}\n"
                 showResult(
                     "Não consegui reconhecer o texto nessa área. Tente marcar uma região um pouco maior, incluindo as letras completas.",
                     false
                 )
             } else {
-                lastDiagnosticReport += "\nIdioma do OCR: \${language ?: "não identificado"}\nTexto reconhecido: \${recognized.take(2000)}\n"
+                lastDiagnosticReport += "\nIdioma do OCR: ${language ?: "não identificado"}\nTexto reconhecido: ${recognized.take(2000)}\n"
                 detectAndTranslate(recognized, language)
             }
         }
@@ -514,7 +514,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val recognizer = try {
                 factory()
             } catch (error: Exception) {
-                lastDiagnosticReport += "Falha ao iniciar OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                lastDiagnosticReport += "Falha ao iniciar OCR $language: ${error.message ?: error.javaClass.simpleName}\n"
                 runOcr(index + 1)
                 return
             }
@@ -527,12 +527,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         else runOcr(index + 1)
                     }
                     .addOnFailureListener { error ->
-                        lastDiagnosticReport += "Falha no OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                        lastDiagnosticReport += "Falha no OCR $language: ${error.message ?: error.javaClass.simpleName}\n"
                         recognizer.close()
                         runOcr(index + 1)
                     }
             } catch (error: Exception) {
-                lastDiagnosticReport += "Exceção no OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                lastDiagnosticReport += "Exceção no OCR $language: ${error.message ?: error.javaClass.simpleName}\n"
                 recognizer.close()
                 runOcr(index + 1)
             }
