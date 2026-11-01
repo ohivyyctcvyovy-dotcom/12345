@@ -466,8 +466,19 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     }
                 }
                 if (selected.first.isBlank()) {
+                    val errors = listOfNotNull(
+                        latinTask.exception?.message,
+                        japaneseTask.exception?.message,
+                        koreanTask.exception?.message,
+                        fullJapaneseTask?.exception?.message,
+                        fullKoreanTask?.exception?.message
+                    ).distinct().joinToString("; ")
+                    val diagnostic = if (errors.isBlank()) "Os motores terminaram, mas não localizaram caracteres." else errors
                     showResult(
-                        "Não consegui reconhecer o texto nessa captura. Tente marcar uma área maior, aproximar o conteúdo e evitar reflexos. Se for japonês, selecione novamente 'Japonês → Português'.",
+                        "O OCR não encontrou texto. $diagnostic\n\n" +
+                            "Imagem capturada: ${capturedBitmap.width} × ${capturedBitmap.height}px. " +
+                            "Área analisada: ${scaledCrop.width} × ${scaledCrop.height}px.\n\n" +
+                            "Marque uma área maior, incluindo todo o texto, e tente novamente.",
                         false
                     )
                 } else {
