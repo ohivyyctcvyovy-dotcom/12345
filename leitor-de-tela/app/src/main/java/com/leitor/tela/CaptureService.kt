@@ -149,12 +149,53 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             }
         }
         floatingButton = button
+        // Botão compacto, arrastável e reposicionável em qualquer ponto da tela.
+        button.minHeight = 0
+        button.minimumHeight = 0
+        button.minWidth = 0
+        button.minimumWidth = 0
+        button.setPadding(dp(9), dp(3), dp(9), dp(3))
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; x = 18; y = 220 }
+        ).apply { gravity = Gravity.TOP or Gravity.END; x = 12; y = 180 }
+        var downRawX = 0f
+        var downRawY = 0f
+        var startX = 0
+        var startY = 0
+        var moved = false
+        button.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    startX = params.x
+                    startY = params.y
+                    moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downRawX
+                    val dy = event.rawY - downRawY
+                    if (kotlin.math.abs(dx) > dp(4) || kotlin.math.abs(dy) > dp(4)) moved = true
+                    if (moved) {
+                        // Com gravidade END, aumentar x move o botão para a esquerda.
+                        params.x = (startX - dx.toInt()).coerceAtLeast(0)
+                        params.y = (startY + dy.toInt()).coerceAtLeast(0)
+                        try { wm.updateViewLayout(view, params) } catch (_: Exception) {}
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) view.performClick()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
         wm.addView(button, params)
     }
 
