@@ -3,6 +3,7 @@ package com.leitor.tela
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.ContentValues
 import android.graphics.PixelFormat
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -16,6 +17,7 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.*
+import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.MotionEvent
@@ -26,6 +28,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.Text
@@ -66,6 +69,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     // Dimensões reais do display usado pelo MediaProjection, incluindo as barras do sistema.
     private var captureScreenWidth = 0
     private var captureScreenHeight = 0
+    private var pendingDiagnosticBitmap: Bitmap? = null
+    private var lastDiagnosticReport = "Diagnóstico ainda não disponível."
+    private var lastSelectedArea: RectF? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -233,7 +239,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         removeSelectionOverlay()
         val frame = FrameLayout(this)
         val selector = SelectionView(this) { area ->
-            selectedArea = area
+            selectedArea = RectF(area)
+            lastSelectedArea = RectF(area)
             removeSelectionOverlay()
             handler.postDelayed({ captureOnce() }, 300)
         }
@@ -383,6 +390,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         }
 
         val capturedBitmap = bitmap ?: return
+        pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
+        pendingDiagnosticBitmap = capturedBitmap.copy(Bitmap.Config.ARGB_8888, false)
         val area = selectedArea
         selectedArea = null
         val bitmapForOcr = if (area != null) {
@@ -394,8 +403,17 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
             val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
+            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\n" +
+                "Tela de referência: ${screenWidth} × ${screenHeight}px\n" +
+                "Fator de escala: x=${"%.3f".format(sx)}, y=${"%.3f".format(sy)}\n" +
+                "Seleção na tela: ${area.left.toInt()},${area.top.toInt()} até ${area.right.toInt()},${area.bottom.toInt()}\n" +
+                "Recorte aplicado: $left,$top até $right,$bottom (${right-left} × ${bottom-top}px)\n" +
+                "Idioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
             Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top)
-        } else capturedBitmap
+        } else {
+            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\nIdioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
+            capturedBitmap
+        }
 
         // Textos japoneses em jogos e imagens costumam ser pequenos. Amplie o recorte
         // para melhorar o OCR. Preserve também a captura inteira para recuperar casos
@@ -448,8 +466,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
 
                 val selected = when {
-                    selectedOcrLanguage == "ja" -> Pair(japaneseText, "ja")
-                    selectedOcrLanguage == "ko" -> Pair(koreanText, "ko")
+                    selectedOcrLanguage == "ja" -> Pair(japaneseText.ifBlank { latinText.takeIf { value -> value.any { it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF' } }.orEmpty() }, "ja")
+                    selectedOcrLanguage == "ko" -> Pair(koreanText.ifBlank { latinText.takeIf { value -> value.any { it in '\uAC00'..'\uD7A3' } }.orEmpty() }, "ko")
                     selectedOcrLanguage == "en" -> Pair(latinText, "en")
                     koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
                     japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
@@ -465,6 +483,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         Pair(best, null)
                     }
                 }
+                lastDiagnosticReport += "\nOCR latino: ${latinText.take(1200)}\nOCR japonês: ${japaneseText.take(1200)}\nOCR coreano: ${koreanText.take(1200)}\n"
                 if (selected.first.isBlank()) {
                     val errors = listOfNotNull(
                         latinTask.exception?.message,
@@ -474,6 +493,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         fullKoreanTask?.exception?.message
                     ).distinct().joinToString("; ")
                     val diagnostic = if (errors.isBlank()) "Os motores terminaram, mas não localizaram caracteres." else errors
+                    lastDiagnosticReport += "Erros dos motores: ${if (errors.isBlank()) "nenhum erro técnico retornado" else errors}\n"
                     showResult(
                         "O OCR não encontrou texto. $diagnostic\n\n" +
                             "Imagem capturada: ${capturedBitmap.width} × ${capturedBitmap.height}px. " +
@@ -482,10 +502,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         false
                     )
                 } else {
+                    lastDiagnosticReport += "Texto selecionado para tradução (${selected.second ?: "detecção automática"}): ${selected.first.take(2000)}\n"
                     detectAndTranslate(selected.first, selected.second)
                 }
-            }.addOnFailureListener {
-                showResult("O reconhecimento falhou nesta imagem. Tente selecionar novamente uma região maior.", false)
+            }.addOnFailureListener { error ->
+                lastDiagnosticReport += "Falha geral do OCR: ${error.message ?: error.javaClass.simpleName}\n"
+                showResult("O reconhecimento falhou: ${error.message ?: "erro não identificado"}. Tente novamente.", false)
             }.addOnCompleteListener {
                 if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
                 if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
@@ -494,7 +516,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 japaneseRecognizer.close()
                 koreanRecognizer.close()
             }
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            lastDiagnosticReport += "Exceção ao iniciar OCR: ${error.message ?: error.javaClass.simpleName}\n"
             if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
             if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
             if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
@@ -556,6 +579,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private fun translateFromLanguage(originalText: String, languageCode: String) {
         val targetLanguage = TranslateLanguage.PORTUGUESE
         val sourceLanguage = TranslateLanguage.fromLanguageTag(languageCode)
+        lastDiagnosticReport += "Idioma usado na tradução: $languageCode → pt\n"
         if (sourceLanguage == null || sourceLanguage == targetLanguage) {
             showResult("Este idioma ainda não está disponível para tradução automática.\n\nTexto reconhecido:\n$originalText", true)
             return
@@ -574,12 +598,14 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         showResult(translated, true)
                         translator.close()
                     }
-                    .addOnFailureListener {
+                    .addOnFailureListener { error ->
+                        lastDiagnosticReport += "Falha na tradução: ${error.message ?: error.javaClass.simpleName}\n"
                         showResult("Não consegui traduzir este texto. Texto original:\\n$originalText", true)
                         translator.close()
                     }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { error ->
+                lastDiagnosticReport += "Falha ao baixar modelo: ${error.message ?: error.javaClass.simpleName}\n"
                 showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\\n\\nTexto original:\\n$originalText", false)
                 translator.close()
             }
@@ -611,10 +637,17 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val pause = Button(this).apply { this.text = "PAUSAR VOZ"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { tts?.stop() } }
             val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
             val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val saveDiagnostic = Button(this).apply {
+                this.text = "SALVAR PRINT + RELATÓRIO DE ERRO"
+                textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 4, 8, 4)
+                setOnClickListener { saveDiagnosticFiles() }
+            }
             val close = Button(this).apply { this.text = "FECHAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-            panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster); panel.addView(close)
+            panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster)
+            if (pendingDiagnosticBitmap != null) panel.addView(saveDiagnostic)
+            panel.addView(close)
             resultWindow = panel
             val p = WindowManager.LayoutParams(
                 (resources.displayMetrics.widthPixels * 0.88f).toInt(),
@@ -624,7 +657,57 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 PixelFormat.TRANSLUCENT
             ).apply { gravity = Gravity.CENTER }
             wm.addView(panel, p)
+            lastDiagnosticReport += "\nResultado mostrado ao usuário: ${text.take(2000)}\n"
             if (autoSpeak) speak(text)
+        }
+    }
+
+
+    private fun saveDiagnosticFiles() {
+        val bitmap = pendingDiagnosticBitmap
+        if (bitmap == null || bitmap.isRecycled) {
+            Toast.makeText(this, "Não há captura disponível para salvar.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val stamp = System.currentTimeMillis()
+        try {
+            val imageValues = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "leitor_tela_$stamp.png")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LeitorDeTela")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+            }
+            val imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageValues)
+                ?: throw IllegalStateException("Não foi possível criar o arquivo de imagem")
+            contentResolver.openOutputStream(imageUri)?.use { stream ->
+                if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                    throw IllegalStateException("Falha ao gravar a imagem")
+                }
+            } ?: throw IllegalStateException("Não foi possível abrir o arquivo de imagem")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val ready = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+                contentResolver.update(imageUri, ready, null, null)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val reportValues = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, "leitor_tela_diagnostico_$stamp.txt")
+                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/LeitorDeTela")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val reportUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, reportValues)
+                    ?: throw IllegalStateException("Imagem salva, mas não foi possível criar o relatório")
+                contentResolver.openOutputStream(reportUri)?.use { it.write(lastDiagnosticReport.toByteArray(Charsets.UTF_8)) }
+                    ?: throw IllegalStateException("Imagem salva, mas não foi possível gravar o relatório")
+                val readyReport = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
+                contentResolver.update(reportUri, readyReport, null, null)
+            }
+            Toast.makeText(this, "Print salvo em Imagens/Pictures > LeitorDeTela. Relatório em Downloads > LeitorDeTela.", Toast.LENGTH_LONG).show()
+        } catch (error: Exception) {
+            Toast.makeText(this, "Erro ao salvar diagnóstico: ${error.message ?: "erro desconhecido"}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -670,6 +753,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         floatingButton?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         display?.release()
         imageReader?.close()
+        pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
+        pendingDiagnosticBitmap = null
         projection?.stop()
         tts?.stop(); tts?.shutdown()
         super.onDestroy()
