@@ -286,19 +286,23 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val japaneseTask = japaneseRecognizer.process(image)
             val koreanTask = koreanRecognizer.process(image)
 
-            Tasks.whenAllSuccess<Text>(latinTask, japaneseTask, koreanTask)
-                .addOnSuccessListener { results ->
+            // Um reconhecedor pode falhar sem impedir que os outros entreguem o texto.
+            Tasks.whenAllComplete(latinTask, japaneseTask, koreanTask)
+                .addOnSuccessListener { completed ->
+                    val results = completed.mapNotNull { task ->
+                        if (task.isSuccessful) task.result as? Text else null
+                    }
                     val bestText = results.maxByOrNull { candidate ->
                         val value = candidate.text
                         val hangul = value.count { it in '\uAC00'..'\uD7A3' }
                         val kana = value.count { it in '\u3040'..'\u30FF' }
                         val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
                         val cjk = value.count { it in '\u4E00'..'\u9FFF' }
-                        maxOf(hangul * 4 + kana * 4 + cjk * 2, latin)
+                        maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
                     }?.text?.trim().orEmpty()
 
                     if (bestText.isBlank()) {
-                        showResult("Não encontrei texto nesta área.", false)
+                        showResult("Não encontrei texto nesta área. Tente selecionar uma região maior e com letras nítidas.", false)
                     } else {
                         detectAndTranslate(bestText)
                     }
@@ -321,46 +325,76 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private fun detectAndTranslate(originalText: String) {
         val languageIdentifier = LanguageIdentification.getClient()
         languageIdentifier.identifyLanguage(originalText)
-            .addOnSuccessListener { languageCode ->
+            .addOnSuccessListener { detectedCode ->
                 languageIdentifier.close()
-                if (languageCode == "pt" || languageCode == "und") {
+                // O identificador costuma retornar "und" em frases japonesas curtas.
+                // Kana é um sinal forte de japonês; Hangul identifica coreano.
+                val hasJapaneseKana = originalText.any { it in '\u3040'..'\u30FF' }
+                val hasHangul = originalText.any { it in '\uAC00'..'\uD7A3' }
+                val languageCode = when {
+                    hasJapaneseKana -> "ja"
+                    hasHangul -> "ko"
+                    detectedCode != "und" -> detectedCode
+                    else -> "und"
+                }
+
+                if (languageCode == "pt") {
                     showResult(originalText, true)
                     return@addOnSuccessListener
                 }
-
-                val targetLanguage = TranslateLanguage.PORTUGUESE
-                val sourceLanguage = TranslateLanguage.fromLanguageTag(languageCode)
-                if (sourceLanguage == null || sourceLanguage == targetLanguage) {
-                    showResult(originalText, true)
+                if (languageCode == "und") {
+                    showResult("Não consegui identificar o idioma deste texto. Tente selecionar uma área maior.\n\nTexto reconhecido:\n$originalText", true)
                     return@addOnSuccessListener
                 }
 
-                val options = TranslatorOptions.Builder()
-                    .setSourceLanguage(sourceLanguage)
-                    .setTargetLanguage(targetLanguage)
-                    .build()
-                val translator = Translation.getClient(options)
-                val conditions = DownloadConditions.Builder().build()
-                translator.downloadModelIfNeeded(conditions)
-                    .addOnSuccessListener {
-                        translator.translate(originalText)
-                            .addOnSuccessListener { translated ->
-                                showResult(translated, true)
-                                translator.close()
-                            }
-                            .addOnFailureListener {
-                                showResult("Não consegui traduzir este texto. Texto original:\n$originalText", true)
-                                translator.close()
-                            }
+                translateFromLanguage(originalText, languageCode)
+            }
+            .addOnFailureListener {
+                languageIdentifier.close()
+                val hasJapaneseKana = originalText.any { it in '\u3040'..'\u30FF' }
+                val hasHangul = originalText.any { it in '\uAC00'..'\uD7A3' }
+                val fallbackCode = when {
+                    hasJapaneseKana -> "ja"
+                    hasHangul -> "ko"
+                    else -> null
+                }
+                if (fallbackCode == null) {
+                    showResult("Não consegui identificar o idioma.\n\nTexto reconhecido:\n$originalText", true)
+                } else {
+                    translateFromLanguage(originalText, fallbackCode)
+                }
+            }
+    }
+
+    private fun translateFromLanguage(originalText: String, languageCode: String) {
+        val targetLanguage = TranslateLanguage.PORTUGUESE
+        val sourceLanguage = TranslateLanguage.fromLanguageTag(languageCode)
+        if (sourceLanguage == null || sourceLanguage == targetLanguage) {
+            showResult("Este idioma ainda não está disponível para tradução automática.\\n\\nTexto reconhecido:\\n$originalText", true)
+            return
+        }
+
+        val options = TranslatorOptions.Builder()
+            .setSourceLanguage(sourceLanguage)
+            .setTargetLanguage(targetLanguage)
+            .build()
+        val translator = Translation.getClient(options)
+        val conditions = DownloadConditions.Builder().build()
+        translator.downloadModelIfNeeded(conditions)
+            .addOnSuccessListener {
+                translator.translate(originalText)
+                    .addOnSuccessListener { translated ->
+                        showResult(translated, true)
+                        translator.close()
                     }
                     .addOnFailureListener {
-                        showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\n\nTexto original:\n$originalText", false)
+                        showResult("Não consegui traduzir este texto. Texto original:\\n$originalText", true)
                         translator.close()
                     }
             }
             .addOnFailureListener {
-                languageIdentifier.close()
-                showResult(originalText, true)
+                showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\\n\\nTexto original:\\n$originalText", false)
+                translator.close()
             }
     }
 
