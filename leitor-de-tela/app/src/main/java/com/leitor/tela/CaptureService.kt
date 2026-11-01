@@ -410,11 +410,10 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun processCapturedBitmap(capturedBitmap: Bitmap) {
-        // O botão não pode depender do término do OCR para reaparecer.
-        // A captura já foi obtida; mantenha o controle acessível enquanto os motores trabalham.
         floatingButton?.visibility = View.VISIBLE
         pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
         pendingDiagnosticBitmap = capturedBitmap.copy(Bitmap.Config.ARGB_8888, false)
+
         val area = selectedArea
         selectedArea = null
         val bitmapForOcr = if (area != null) {
@@ -426,144 +425,116 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
             val bottom = (area.bottom * sy).toInt().coerceIn(top + 1, capturedBitmap.height)
-            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\n" +
-                "Tela de referência: ${screenWidth} × ${screenHeight}px\n" +
-                "Fator de escala: x=${"%.3f".format(sx)}, y=${"%.3f".format(sy)}\n" +
-                "Seleção na tela: ${area.left.toInt()},${area.top.toInt()} até ${area.right.toInt()},${area.bottom.toInt()}\n" +
-                "Recorte aplicado: $left,$top até $right,$bottom (${right-left} × ${bottom-top}px)\n" +
-                "Idioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
-            // O print salvo recebe uma moldura sobre a região selecionada para
-            // permitir conferir visualmente se o arrasto corresponde ao texto.
+            lastDiagnosticReport = "Captura: \${capturedBitmap.width} × \${capturedBitmap.height}px\n" +
+                "Tela de referência: \${screenWidth} × \${screenHeight}px\n" +
+                "Fator de escala: x=\${"%.3f".format(sx)}, y=\${"%.3f".format(sy)}\n" +
+                "Seleção na tela: \${area.left.toInt()},\${area.top.toInt()} até \${area.right.toInt()},\${area.bottom.toInt()}\n" +
+                "Recorte aplicado: $left,$top até $right,$bottom (\${right-left} × \${bottom-top}px)\n" +
+                "Idioma escolhido: \${selectedOcrLanguage ?: "automático"}\n"
             pendingDiagnosticBitmap?.let { diagnostic ->
-                val diagnosticCanvas = Canvas(diagnostic)
-                val highlightFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                val canvas = Canvas(diagnostic)
+                val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = 0x33FFD166
                     style = Paint.Style.FILL
                 }
-                val highlightOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = Color.RED
                     style = Paint.Style.STROKE
                     strokeWidth = maxOf(5f, diagnostic.width * 0.003f)
                 }
                 val marked = RectF(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
-                diagnosticCanvas.drawRect(marked, highlightFill)
-                diagnosticCanvas.drawRect(marked, highlightOutline)
+                canvas.drawRect(marked, fill)
+                canvas.drawRect(marked, outline)
             }
             Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top)
         } else {
-            lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\nIdioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
+            lastDiagnosticReport = "Captura: \${capturedBitmap.width} × \${capturedBitmap.height}px\nIdioma escolhido: \${selectedOcrLanguage ?: "automático"}\n"
             capturedBitmap
         }
 
-        // Textos japoneses em jogos e imagens costumam ser pequenos. Amplie o recorte
-        // para melhorar o OCR. Preserve também a captura inteira para recuperar casos
-        // em que as coordenadas do recorte variem entre fabricantes/barras do sistema.
-        val scaledCrop = if (bitmapForOcr !== capturedBitmap &&
-            (bitmapForOcr.width < 1400 || bitmapForOcr.height < 900)) {
-            val factor = minOf(3f, maxOf(1.5f, 1400f / bitmapForOcr.width))
+        // Um único motor de OCR por vez reduz o uso de memória em celulares de entrada.
+        val scale = if (bitmapForOcr.width < 900 || bitmapForOcr.height < 500) {
+            minOf(2f, maxOf(1f, 900f / bitmapForOcr.width))
+        } else 1f
+        val ocrBitmap = if (scale > 1f) {
             Bitmap.createScaledBitmap(
                 bitmapForOcr,
-                (bitmapForOcr.width * factor).toInt().coerceAtLeast(1),
-                (bitmapForOcr.height * factor).toInt().coerceAtLeast(1),
+                (bitmapForOcr.width * scale).toInt().coerceAtLeast(1),
+                (bitmapForOcr.height * scale).toInt().coerceAtLeast(1),
                 true
             )
         } else bitmapForOcr
 
-        try {
-            val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-            val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-            val cropImage = InputImage.fromBitmap(scaledCrop, 0)
-            val latinTask = latinRecognizer.process(cropImage)
-            val japaneseTask = japaneseRecognizer.process(cropImage)
-            val koreanTask = koreanRecognizer.process(cropImage)
+        val languages = when (selectedOcrLanguage) {
+            "ja" -> listOf("ja")
+            "ko" -> listOf("ko")
+            "en" -> listOf("en")
+            else -> listOf("ja", "ko", "en")
+        }
 
-            // OCR adicional da tela inteira: usado somente se o recorte não encontrar
-            // caracteres japoneses, evitando perder texto por diferenças de coordenadas.
-            // Evite executar OCR da tela inteira em paralelo quando o usuário
-            // escolheu explicitamente um idioma. Em aparelhos com pouca memória isso
-            // duplicava o trabalho e podia encerrar o processo antes da tradução.
-            val fullJapaneseTask = if (bitmapForOcr !== capturedBitmap && selectedOcrLanguage == null) {
-                japaneseRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
-            } else null
-            val fullKoreanTask = if (bitmapForOcr !== capturedBitmap && selectedOcrLanguage == null) {
-                koreanRecognizer.process(InputImage.fromBitmap(capturedBitmap, 0))
-            } else null
-
-            Tasks.whenAllComplete(
-                *listOfNotNull(latinTask, japaneseTask, koreanTask, fullJapaneseTask, fullKoreanTask).toTypedArray()
-            ).addOnSuccessListener { completed ->
-                val latinText = if (latinTask.isSuccessful) latinTask.result?.text?.trim().orEmpty() else ""
-                val cropJapaneseText = if (japaneseTask.isSuccessful) japaneseTask.result?.text?.trim().orEmpty() else ""
-                val cropKoreanText = if (koreanTask.isSuccessful) koreanTask.result?.text?.trim().orEmpty() else ""
-                val fullKoreanText = if (fullKoreanTask?.isSuccessful == true) fullKoreanTask.result?.text?.trim().orEmpty() else ""
-                val koreanText = cropKoreanText.ifBlank { fullKoreanText }
-                val fullJapaneseText = if (fullJapaneseTask?.isSuccessful == true) {
-                    fullJapaneseTask.result?.text?.trim().orEmpty()
-                } else ""
-                val japaneseText = cropJapaneseText.ifBlank { fullJapaneseText }
-
-                val japaneseChars = japaneseText.any {
-                    it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF'
-                }
-                val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
-
-                val selected = when {
-                    selectedOcrLanguage == "ja" -> Pair(japaneseText.ifBlank { latinText.takeIf { value -> value.any { it in '\u3040'..'\u30FF' || it in '\u4E00'..'\u9FFF' } }.orEmpty() }, "ja")
-                    selectedOcrLanguage == "ko" -> Pair(koreanText.ifBlank { latinText.takeIf { value -> value.any { it in '\uAC00'..'\uD7A3' } }.orEmpty() }, "ko")
-                    selectedOcrLanguage == "en" -> Pair(latinText, "en")
-                    koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
-                    japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
-                    else -> {
-                        val candidates = listOf(latinText, japaneseText, koreanText).filter { it.isNotBlank() }
-                        val best = candidates.maxByOrNull { value ->
-                            val hangul = value.count { it in '\uAC00'..'\uD7A3' }
-                            val kana = value.count { it in '\u3040'..'\u30FF' }
-                            val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
-                            val cjk = value.count { it in '\u4E00'..'\u9FFF' }
-                            maxOf(hangul * 5 + kana * 5 + cjk * 2, latin)
-                        }.orEmpty()
-                        Pair(best, null)
+        val factories: List<Pair<String, () -> com.google.mlkit.vision.text.TextRecognizer>> =
+            languages.map { code ->
+                code to {
+                    when (code) {
+                        "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+                        "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                        else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
                     }
                 }
-                lastDiagnosticReport += "\nOCR latino: ${latinText.take(1200)}\nOCR japonês: ${japaneseText.take(1200)}\nOCR coreano: ${koreanText.take(1200)}\n"
-                if (selected.first.isBlank()) {
-                    val errors = listOfNotNull(
-                        latinTask.exception?.message,
-                        japaneseTask.exception?.message,
-                        koreanTask.exception?.message,
-                        fullJapaneseTask?.exception?.message,
-                        fullKoreanTask?.exception?.message
-                    ).distinct().joinToString("; ")
-                    val diagnostic = if (errors.isBlank()) "Os motores terminaram, mas não localizaram caracteres." else errors
-                    lastDiagnosticReport += "Erros dos motores: ${if (errors.isBlank()) "nenhum erro técnico retornado" else errors}\n"
-                    showResult(
-                        "O OCR não encontrou texto. $diagnostic\n\n" +
-                            "Imagem capturada: ${capturedBitmap.width} × ${capturedBitmap.height}px. " +                            "Área analisada: ${scaledCrop.width} × ${scaledCrop.height}px.\n\n" +
-                            "Marque uma área maior, incluindo todo o texto, e tente novamente.",
-                        false
-                    )
-                } else {
-                    lastDiagnosticReport += "Texto selecionado para tradução (${selected.second ?: "detecção automática"}): ${selected.first.take(2000)}\n"
-                    detectAndTranslate(selected.first, selected.second)
-                }
-            }.addOnFailureListener { error ->
-                lastDiagnosticReport += "Falha geral do OCR: ${error.message ?: error.javaClass.simpleName}\n"
-                showResult("O reconhecimento falhou: ${error.message ?: "erro não identificado"}. Tente novamente.", false)
-            }.addOnCompleteListener {
-                if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
-                if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
-                if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
-                latinRecognizer.close()
-                japaneseRecognizer.close()
-                koreanRecognizer.close()
-            }        } catch (error: Exception) {
-            lastDiagnosticReport += "Exceção ao iniciar OCR: ${error.message ?: error.javaClass.simpleName}\n"
-            if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
+            }
+
+        fun finishOcr(text: String?, language: String?) {
+            if (ocrBitmap !== bitmapForOcr && !ocrBitmap.isRecycled) ocrBitmap.recycle()
             if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
             if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
-            showResult("Ocorreu um erro ao reconhecer a imagem. Tente novamente.", false)
+
+            val recognized = text.orEmpty().trim()
+            if (recognized.isBlank()) {
+                lastDiagnosticReport += "\nOCR: nenhum texto reconhecido. Idiomas tentados: \${languages.joinToString()}\n"
+                showResult(
+                    "Não consegui reconhecer o texto nessa área. Tente marcar uma região um pouco maior, incluindo as letras completas.",
+                    false
+                )
+            } else {
+                lastDiagnosticReport += "\nIdioma do OCR: \${language ?: "não identificado"}\nTexto reconhecido: \${recognized.take(2000)}\n"
+                detectAndTranslate(recognized, language)
+            }
         }
+
+        fun runOcr(index: Int) {
+            if (index >= factories.size) {
+                finishOcr(null, null)
+                return
+            }
+            val (language, factory) = factories[index]
+            val recognizer = try {
+                factory()
+            } catch (error: Exception) {
+                lastDiagnosticReport += "Falha ao iniciar OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                runOcr(index + 1)
+                return
+            }
+            try {
+                recognizer.process(InputImage.fromBitmap(ocrBitmap, 0))
+                    .addOnSuccessListener { result ->
+                        val recognized = result.text.trim()
+                        recognizer.close()
+                        if (recognized.isNotBlank()) finishOcr(recognized, language)
+                        else runOcr(index + 1)
+                    }
+                    .addOnFailureListener { error ->
+                        lastDiagnosticReport += "Falha no OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                        recognizer.close()
+                        runOcr(index + 1)
+                    }
+            } catch (error: Exception) {
+                lastDiagnosticReport += "Exceção no OCR $language: \${error.message ?: error.javaClass.simpleName}\n"
+                recognizer.close()
+                runOcr(index + 1)
+            }
+        }
+
+        runOcr(0)
     }
 
     private fun detectAndTranslate(originalText: String, preferredLanguage: String? = null) {
