@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.util.DisplayMetrics
 import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.media.projection.MediaProjection
@@ -60,6 +61,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var speechRate = 1.0f
+    // Dimensões reais do display usado pelo MediaProjection, incluindo as barras do sistema.
+    private var captureScreenWidth = 0
+    private var captureScreenHeight = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -92,10 +96,23 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun prepareScreenCapture() {
-        val metrics = resources.displayMetrics
-        imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 3)
+        // Use o tamanho físico do display. resources.displayMetrics pode excluir barras
+        // do sistema em alguns aparelhos, deslocando o recorte vertical da seleção.
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.getRealMetrics(metrics)
+        captureScreenWidth = metrics.widthPixels
+        captureScreenHeight = metrics.heightPixels
+        if (captureScreenWidth <= 0 || captureScreenHeight <= 0) {
+            captureScreenWidth = resources.displayMetrics.widthPixels
+            captureScreenHeight = resources.displayMetrics.heightPixels
+            metrics.densityDpi = resources.displayMetrics.densityDpi
+        }
+        imageReader = ImageReader.newInstance(
+            captureScreenWidth, captureScreenHeight, PixelFormat.RGBA_8888, 3
+        )
         display = projection?.createVirtualDisplay(
-            "LeitorDeTela", metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
+            "LeitorDeTela", captureScreenWidth, captureScreenHeight, metrics.densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader?.surface, null, handler
         )
     }
@@ -203,7 +220,16 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 MotionEvent.ACTION_UP -> {
                     currentX = event.x; currentY = event.y
                     dragging = false
-                    val rect = RectF(startX, startY, currentX, currentY).apply { sort() }
+                    // Converta coordenadas locais do overlay para coordenadas absolutas
+                    // da tela. Isso evita o deslocamento causado pela barra de status.
+                    val screenPosition = IntArray(2)
+                    getLocationOnScreen(screenPosition)
+                    val rect = RectF(
+                        startX + screenPosition[0],
+                        startY + screenPosition[1],
+                        currentX + screenPosition[0],
+                        currentY + screenPosition[1]
+                    ).apply { sort() }
                     if (rect.width() >= 20f && rect.height() >= 20f) {
                         onSelected(rect)
                     } else {
@@ -267,8 +293,10 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val area = selectedArea
         selectedArea = null
         val bitmapForOcr = if (area != null) {
-            val sx = capturedBitmap.width.toFloat() / resources.displayMetrics.widthPixels.toFloat()
-            val sy = capturedBitmap.height.toFloat() / resources.displayMetrics.heightPixels.toFloat()
+            val screenWidth = captureScreenWidth.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+            val screenHeight = captureScreenHeight.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+            val sx = capturedBitmap.width.toFloat() / screenWidth.toFloat()
+            val sy = capturedBitmap.height.toFloat() / screenHeight.toFloat()
             val left = (area.left * sx).toInt().coerceIn(0, capturedBitmap.width - 1)
             val top = (area.top * sy).toInt().coerceIn(0, capturedBitmap.height - 1)
             val right = (area.right * sx).toInt().coerceIn(left + 1, capturedBitmap.width)
@@ -370,7 +398,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         val targetLanguage = TranslateLanguage.PORTUGUESE
         val sourceLanguage = TranslateLanguage.fromLanguageTag(languageCode)
         if (sourceLanguage == null || sourceLanguage == targetLanguage) {
-            showResult("Este idioma ainda não está disponível para tradução automática.\\n\\nTexto reconhecido:\\n$originalText", true)
+            showResult("Este idioma ainda não está disponível para tradução automática.\n\nTexto reconhecido:\n$originalText", true)
             return
         }
 
