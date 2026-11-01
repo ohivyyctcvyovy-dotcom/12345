@@ -52,8 +52,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
         startForeground(NOTIFICATION_ID, notification())
         val code = intent?.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED) ?: Activity.RESULT_CANCELED
-        val data = if (Build.VERSION.SDK_INT >= 33) intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
-                   else @Suppress("DEPRECATION") (intent?.getParcelableExtra(EXTRA_RESULT_DATA) as? Intent)
+        @Suppress("DEPRECATION")
+        val data: Intent? = if (Build.VERSION.SDK_INT >= 33) {
+            intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
+        } else {
+            intent?.getParcelableExtra(EXTRA_RESULT_DATA)
+        }
         if (code != Activity.RESULT_OK || data == null) { stopSelf(); return START_NOT_STICKY }
         try {
             val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
