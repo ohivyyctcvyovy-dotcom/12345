@@ -378,8 +378,10 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 val height = image.height
                 val rowStride = plane.rowStride
                 val pixelStride = plane.pixelStride
-                val pixels = IntArray(width * height)
-
+                // Converta uma linha por vez: evita reservar um IntArray do tamanho
+                // inteiro da tela, que podia consumir dezenas de MB em celulares modestos.
+                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val rowPixels = IntArray(width)
                 for (y in 0 until height) {
                     for (x in 0 until width) {
                         val offset = y * rowStride + x * pixelStride
@@ -387,12 +389,10 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         val green = buffer.get(offset + 1).toInt() and 0xFF
                         val blue = buffer.get(offset + 2).toInt() and 0xFF
                         val alpha = buffer.get(offset + 3).toInt() and 0xFF
-                        pixels[y * width + x] = Color.argb(alpha, red, green, blue)
+                        rowPixels[x] = Color.argb(alpha, red, green, blue)
                     }
+                    bitmap!!.setPixels(rowPixels, 0, width, 0, y, width, 1)
                 }
-
-                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                bitmap!!.setPixels(pixels, 0, width, 0, 0, width, height)
             } catch (error: Exception) {
                 captureError = error.message ?: error.javaClass.simpleName
             } finally {
@@ -407,7 +407,20 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                         false
                     )
                 } else {
-                    processCapturedBitmap(captured)
+                    try {
+                        processCapturedBitmap(captured)
+                    } catch (error: Throwable) {
+                        lastDiagnosticReport += "\nFalha inesperada ao preparar/processar captura: " +
+                            error.javaClass.simpleName + ": " + (error.message ?: "sem detalhes") + "\n"
+                        if (captured !== pendingDiagnosticBitmap && !captured.isRecycled) {
+                            try { captured.recycle() } catch (_: Throwable) {}
+                        }
+                        showResult(
+                            "O processamento da imagem falhou (" + error.javaClass.simpleName +
+                                "). Tente selecionar uma área menor.",
+                            false
+                        )
+                    }
                 }
             }
         }
@@ -416,7 +429,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private fun processCapturedBitmap(capturedBitmap: Bitmap) {
         floatingButton?.visibility = View.VISIBLE
         pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
-        pendingDiagnosticBitmap = capturedBitmap.copy(Bitmap.Config.ARGB_8888, false)
+        // Reutiliza a captura original como imagem de diagnóstico. Fazer uma cópia
+        // integral aqui duplicava o consumo de memória antes mesmo do recorte do OCR.
+        pendingDiagnosticBitmap = capturedBitmap
 
         val area = selectedArea
         selectedArea = null
@@ -490,7 +505,11 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         fun finishOcr(text: String?, language: String?) {
             if (ocrBitmap !== bitmapForOcr && !ocrBitmap.isRecycled) ocrBitmap.recycle()
             if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
-            if (!capturedBitmap.isRecycled) capturedBitmap.recycle()
+            // A captura original fica guardada para o print/relatório; não a recicle
+            // junto com o recorte usado pelo OCR.
+            if (capturedBitmap !== pendingDiagnosticBitmap && !capturedBitmap.isRecycled) {
+                capturedBitmap.recycle()
+            }
 
             val recognized = text.orEmpty().trim()
             if (recognized.isBlank()) {
