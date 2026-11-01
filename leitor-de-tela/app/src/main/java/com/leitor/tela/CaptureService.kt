@@ -409,6 +409,23 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 "Seleção na tela: ${area.left.toInt()},${area.top.toInt()} até ${area.right.toInt()},${area.bottom.toInt()}\n" +
                 "Recorte aplicado: $left,$top até $right,$bottom (${right-left} × ${bottom-top}px)\n" +
                 "Idioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
+            // O print salvo recebe uma moldura sobre a região selecionada para
+            // permitir conferir visualmente se o arrasto corresponde ao texto.
+            pendingDiagnosticBitmap?.let { diagnostic ->
+                val diagnosticCanvas = Canvas(diagnostic)
+                val highlightFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = 0x33FFD166
+                    style = Paint.Style.FILL
+                }
+                val highlightOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.RED
+                    style = Paint.Style.STROKE
+                    strokeWidth = maxOf(5f, diagnostic.width * 0.003f)
+                }
+                val marked = RectF(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+                diagnosticCanvas.drawRect(marked, highlightFill)
+                diagnosticCanvas.drawRect(marked, highlightOutline)
+            }
             Bitmap.createBitmap(capturedBitmap, left, top, right - left, bottom - top)
         } else {
             lastDiagnosticReport = "Captura: ${capturedBitmap.width} × ${capturedBitmap.height}px\nIdioma escolhido: ${selectedOcrLanguage ?: "automático"}\n"
