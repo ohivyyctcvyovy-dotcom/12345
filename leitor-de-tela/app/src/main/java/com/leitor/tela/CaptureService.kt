@@ -1,7 +1,6 @@
 package com.leitor.tela
 
 import android.app.*
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -56,6 +55,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private var imageReader: ImageReader? = null
     private var display: android.hardware.display.VirtualDisplay? = null
     private var floatingButton: Button? = null
+    private var languagePickerWindow: LinearLayout? = null
     private var resultWindow: LinearLayout? = null
     private var selectionWindow: FrameLayout? = null
     private var selectedArea: RectF? = null
@@ -139,17 +139,95 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun showLanguagePicker() {
-        val labels = arrayOf("Detectar automaticamente", "Japonês → Português", "Coreano → Português", "Inglês → Português")
-        val codes = arrayOf<String?>(null, "ja", "ko", "en")
-        AlertDialog.Builder(this)
-            .setTitle("Qual idioma você quer ler?")
-            .setItems(labels) { _, which ->
-                selectedOcrLanguage = codes[which]
-                showSelectionOverlay()
+        removeLanguagePicker()
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(22), dp(22), dp(18))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.rgb(22, 22, 25))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), 0xFFD6AD55.toInt())
             }
-            .setOnCancelListener { floatingButton?.visibility = View.VISIBLE }
-            .show()
+        }
+        val title = TextView(this).apply {
+            text = "ESCOLHA O IDIOMA"
+            textSize = 19f
+            setTextColor(0xFFFFD778.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(6))
+        }
+        val subtitle = TextView(this).apply {
+            text = "O texto será traduzido para português."
+            textSize = 13f
+            setTextColor(0xFFCCCCCC.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(14))
+        }
+        card.addView(title)
+        card.addView(subtitle)
+        val choices = listOf(
+            "Detectar automaticamente" to null,
+            "🇯🇵  Japonês  →  Português" to "ja",
+            "🇰🇷  Coreano  →  Português" to "ko",
+            "🇬🇧  Inglês  →  Português" to "en"
+        )
+        choices.forEach { (label, code) ->
+            val choice = Button(this).apply {
+                text = label
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(0xFFFFE7B0.toInt())
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFF343038.toInt())
+                    cornerRadius = dp(12).toFloat()
+                    setStroke(dp(1), 0xFF80652F.toInt())
+                }
+                setOnClickListener {
+                    selectedOcrLanguage = code
+                    removeLanguagePicker()
+                    showSelectionOverlay()
+                }
+            }
+            card.addView(choice, LinearLayout.LayoutParams(-1, dp(50)).apply {
+                bottomMargin = dp(8)
+            })
+        }
+        val cancel = TextView(this).apply {
+            text = "Cancelar"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFBBBBBB.toInt())
+            setPadding(0, dp(8), 0, dp(2))
+            setOnClickListener {
+                removeLanguagePicker()
+                floatingButton?.visibility = View.VISIBLE
+            }
+        }
+        card.addView(cancel)
+        languagePickerWindow = card
+        val params = WindowManager.LayoutParams(
+            (resources.displayMetrics.widthPixels * 0.88f).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.CENTER }
+        try {
+            wm.addView(card, params)
+        } catch (_: Exception) {
+            languagePickerWindow = null
+            floatingButton?.visibility = View.VISIBLE
+            showResult("Não consegui abrir o menu. Confira a permissão de aparecer sobre outros aplicativos.", false)
+        }
     }
+
+    private fun removeLanguagePicker() {
+        languagePickerWindow?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        languagePickerWindow = null
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 
     private fun showSelectionOverlay() {
         removeSelectionOverlay()
@@ -351,8 +429,14 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
 
                     val selected = when {
-                        selectedOcrLanguage == "ja" -> Pair(japaneseText, "ja")
-                        selectedOcrLanguage == "ko" -> Pair(koreanText, "ko")
+                        selectedOcrLanguage == "ja" -> Pair(
+                            japaneseText.ifBlank { latinText.filter { ch ->
+                                ch in '\u3040'..'\u30FF' || ch in '\u4E00'..'\u9FFF'
+                            } }, "ja"
+                        )
+                        selectedOcrLanguage == "ko" -> Pair(
+                            koreanText.ifBlank { latinText.filter { ch -> ch in '\uAC00'..'\uD7A3' } }, "ko"
+                        )
                         selectedOcrLanguage == "en" -> Pair(latinText, "en")
                         koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
                         japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
@@ -554,6 +638,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         removeResult()
+        removeLanguagePicker()
         removeSelectionOverlay()
         floatingButton?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         display?.release()
