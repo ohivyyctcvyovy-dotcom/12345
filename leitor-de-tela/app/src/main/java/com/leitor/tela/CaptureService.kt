@@ -43,6 +43,7 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.android.gms.tasks.Tasks
 import java.util.Locale
+import java.util.concurrent.Executors
 
 class CaptureService : Service(), TextToSpeech.OnInitListener {
     companion object {
@@ -55,6 +56,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
 
     private lateinit var wm: WindowManager
     private val handler = Handler(Looper.getMainLooper())
+    // A conversão do frame não pode bloquear a thread principal: em telas grandes
+    // o loop de pixels pode levar tempo suficiente para o Android encerrar a UI.
+    private val captureExecutor = Executors.newSingleThreadExecutor()
     private var projection: MediaProjection? = null
     private var imageReader: ImageReader? = null
     private var display: android.hardware.display.VirtualDisplay? = null
@@ -268,7 +272,6 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         selectionWindow?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         selectionWindow = null
     }
-
     private inner class SelectionView(context: Context, val onSelected: (RectF) -> Unit) : View(context) {
         private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFFFFD166.toInt()
@@ -361,37 +364,53 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
-        var bitmap: Bitmap? = null
-        try {
-            val plane = image.planes.firstOrNull()
-                ?: throw IllegalStateException("A captura não contém uma camada de imagem")
-            val buffer = plane.buffer.duplicate()
-            val width = image.width
-            val height = image.height
-            val rowStride = plane.rowStride
-            val pixelStride = plane.pixelStride
-            val pixels = IntArray(width * height)
+        captureExecutor.execute {
+            var bitmap: Bitmap? = null
+            var captureError: String? = null
+            try {
+                val plane = image.planes.firstOrNull()
+                    ?: throw IllegalStateException("A captura não contém uma camada de imagem")
+                val buffer = plane.buffer.duplicate()
+                val width = image.width
+                val height = image.height
+                val rowStride = plane.rowStride
+                val pixelStride = plane.pixelStride
+                val pixels = IntArray(width * height)
 
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    val offset = y * rowStride + x * pixelStride
-                    val red = buffer.get(offset).toInt() and 0xFF
-                    val green = buffer.get(offset + 1).toInt() and 0xFF
-                    val blue = buffer.get(offset + 2).toInt() and 0xFF
-                    val alpha = buffer.get(offset + 3).toInt() and 0xFF
-                    pixels[y * width + x] = Color.argb(alpha, red, green, blue)
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        val offset = y * rowStride + x * pixelStride
+                        val red = buffer.get(offset).toInt() and 0xFF
+                        val green = buffer.get(offset + 1).toInt() and 0xFF
+                        val blue = buffer.get(offset + 2).toInt() and 0xFF
+                        val alpha = buffer.get(offset + 3).toInt() and 0xFF
+                        pixels[y * width + x] = Color.argb(alpha, red, green, blue)
+                    }
                 }
+
+                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                bitmap!!.setPixels(pixels, 0, width, 0, 0, width, height)
+            } catch (error: Exception) {
+                captureError = error.message ?: error.javaClass.simpleName
+            } finally {
+                try { image.close() } catch (_: Exception) {}
             }
 
-            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-        } catch (_: Exception) {
-            showResult("Não foi possível preparar a imagem capturada. Tente novamente.", false)
-        } finally {
-            try { image.close() } catch (_: Exception) {}
+            handler.post {
+                val captured = bitmap
+                if (captured == null) {
+                    showResult(
+                        "Não foi possível preparar a imagem capturada: ${captureError ?: "erro desconhecido"}. Tente novamente.",
+                        false
+                    )
+                } else {
+                    processCapturedBitmap(captured)
+                }
+            }
         }
+    }
 
-        val capturedBitmap = bitmap ?: return
+    private fun processCapturedBitmap(capturedBitmap: Bitmap) {
         // O botão não pode depender do término do OCR para reaparecer.
         // A captura já foi obtida; mantenha o controle acessível enquanto os motores trabalham.
         floatingButton?.visibility = View.VISIBLE
@@ -537,8 +556,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 latinRecognizer.close()
                 japaneseRecognizer.close()
                 koreanRecognizer.close()
-            }
-        } catch (error: Exception) {
+            }        } catch (error: Exception) {
             lastDiagnosticReport += "Exceção ao iniciar OCR: ${error.message ?: error.javaClass.simpleName}\n"
             if (scaledCrop !== bitmapForOcr && !scaledCrop.isRecycled) scaledCrop.recycle()
             if (bitmapForOcr !== capturedBitmap && !bitmapForOcr.isRecycled) bitmapForOcr.recycle()
@@ -848,6 +866,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         floatingButton?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         display?.release()
         imageReader?.close()
+        captureExecutor.shutdownNow()
         pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
         pendingDiagnosticBitmap = null
         projection?.stop()
