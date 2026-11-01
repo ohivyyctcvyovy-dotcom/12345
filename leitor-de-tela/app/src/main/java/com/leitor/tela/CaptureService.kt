@@ -1,6 +1,7 @@
 package com.leitor.tela
 
 import android.app.*
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -61,6 +62,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var speechRate = 1.0f
+    private var selectedOcrLanguage: String? = null
     // Dimensões reais do display usado pelo MediaProjection, incluindo as barras do sistema.
     private var captureScreenWidth = 0
     private var captureScreenHeight = 0
@@ -123,7 +125,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             textSize = 13f
             setOnClickListener {
                 this.visibility = View.INVISIBLE
-                showSelectionOverlay()
+                showLanguagePicker()
             }
         }
         floatingButton = button
@@ -134,6 +136,19 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.END; x = 18; y = 220 }
         wm.addView(button, params)
+    }
+
+    private fun showLanguagePicker() {
+        val labels = arrayOf("Detectar automaticamente", "Japonês → Português", "Coreano → Português", "Inglês → Português")
+        val codes = arrayOf<String?>(null, "ja", "ko", "en")
+        AlertDialog.Builder(this)
+            .setTitle("Qual idioma você quer ler?")
+            .setItems(labels) { _, which ->
+                selectedOcrLanguage = codes[which]
+                showSelectionOverlay()
+            }
+            .setOnCancelListener { floatingButton?.visibility = View.VISIBLE }
+            .show()
     }
 
     private fun showSelectionOverlay() {
@@ -336,6 +351,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     val koreanChars = koreanText.any { it in '\uAC00'..'\uD7A3' }
 
                     val selected = when {
+                        selectedOcrLanguage == "ja" -> Pair(japaneseText, "ja")
+                        selectedOcrLanguage == "ko" -> Pair(koreanText, "ko")
+                        selectedOcrLanguage == "en" -> Pair(latinText, "en")
                         koreanText.isNotBlank() && koreanChars -> Pair(koreanText, "ko")
                         japaneseText.isNotBlank() && japaneseChars -> Pair(japaneseText, "ja")
                         else -> {
