@@ -100,6 +100,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             }, handler)
             prepareScreenCapture()
             showFloatingButton()
+            preloadTranslationModels()
         } catch (_: Exception) { stopSelf() }
         return START_NOT_STICKY
     }
@@ -391,6 +392,9 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
         }
 
         val capturedBitmap = bitmap ?: return
+        // O botão não pode depender do término do OCR para reaparecer.
+        // A captura já foi obtida; mantenha o controle acessível enquanto os motores trabalham.
+        floatingButton?.visibility = View.VISIBLE
         pendingDiagnosticBitmap?.let { if (!it.isRecycled) it.recycle() }
         pendingDiagnosticBitmap = capturedBitmap.copy(Bitmap.Config.ARGB_8888, false)
         val area = selectedArea
@@ -592,6 +596,53 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     translateFromLanguage(originalText, fallbackCode)
                 }
             }
+    }
+
+    /**
+     * Pré-baixa os três modelos de tradução no primeiro uso do leitor.
+     * O ML Kit mantém esses modelos no armazenamento do aparelho; eles não são
+     * incorporados ao APK pelas dependências oficiais de tradução.
+     */
+    private fun preloadTranslationModels() {
+        val languagePairs = listOf("ja", "ko", "en")
+            .mapNotNull { code ->
+                val source = TranslateLanguage.fromLanguageTag(code)
+                if (source == null) null else code to source
+            }
+        if (languagePairs.isEmpty()) return
+
+        Toast.makeText(
+            this,
+            "Preparando japonês, coreano e inglês para tradução. Mantenha a internet ligada.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        var remaining = languagePairs.size
+        var failures = 0
+        languagePairs.forEach { (code, sourceLanguage) ->
+            val options = TranslatorOptions.Builder()
+                .setSourceLanguage(sourceLanguage)
+                .setTargetLanguage(TranslateLanguage.PORTUGUESE)
+                .build()
+            val translator = Translation.getClient(options)
+            translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
+                .addOnSuccessListener {
+                    translator.close()
+                    remaining -= 1
+                    if (remaining == 0 && failures == 0) {
+                        Toast.makeText(this, "Idiomas preparados! As próximas traduções podem funcionar offline.", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .addOnFailureListener { error ->
+                    translator.close()
+                    failures += 1
+                    remaining -= 1
+                    lastDiagnosticReport += "Pré-download do modelo $code falhou: ${error.message ?: error.javaClass.simpleName}\\n"
+                    if (remaining == 0) {
+                        Toast.makeText(this, "Alguns idiomas não foram baixados. Confira a internet e tente novamente.", Toast.LENGTH_LONG).show()
+                    }
+                }
+        }
     }
 
     private fun translateFromLanguage(originalText: String, languageCode: String) {
