@@ -87,7 +87,7 @@ class MainActivity : Activity() {
             setTextColor(gold)
         }
         val heroText = TextView(this).apply {
-            text = "Escolha Japonês → Português, Coreano → Português ou Inglês → Português. Depois marque com o dedo a área que deseja traduzir."
+            text = "Escolha Japonês → Português, Coreano → Português ou Inglês → Português. Quando o Android perguntar o que compartilhar, escolha TELA INTEIRA (não apenas uma janela ou aplicativo). Depois marque com o dedo a área que deseja traduzir."
             textSize = 14f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
@@ -112,9 +112,10 @@ class MainActivity : Activity() {
         }
         root.addView(howTitle)
         root.addView(infoCard("01", "Ative o leitor", "Autorize a captura de tela e a exibição sobre outros aplicativos."))
-        root.addView(infoCard("02", "Toque no botão LER", "O botão flutuante aparece por cima dos outros aplicativos."))
-        root.addView(infoCard("03", "Escolha o idioma", "Selecione Japonês → Português para traduzir diretamente do japonês."))
-        root.addView(infoCard("04", "Marque o texto", "Arraste o dedo para desenhar um retângulo em volta do texto."))
+        root.addView(infoCard("02", "Escolha TELA INTEIRA", "Na janela de permissão do Android, selecione compartilhar a tela inteira. Se escolher só um aplicativo, o leitor pode capturar a janela errada."))
+        root.addView(infoCard("03", "Toque no botão LER", "O botão flutuante aparece por cima dos outros aplicativos."))
+        root.addView(infoCard("04", "Escolha o idioma", "Selecione Japonês → Português, Coreano → Português ou Detectar automaticamente."))
+        root.addView(infoCard("05", "Marque o texto", "Arraste do canto superior esquerdo ao inferior direito, incluindo todas as letras e sem cortar as bordas."))
 
         val stop = actionButton("PARAR LEITOR", false).apply {
             setOnClickListener { stopService(Intent(this@MainActivity, CaptureService::class.java)) }
