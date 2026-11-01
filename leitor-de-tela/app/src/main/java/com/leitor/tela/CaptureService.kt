@@ -27,7 +27,16 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import com.google.mlkit.nl.languageid.LanguageIdentification
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.TranslatorOptions
+import com.google.mlkit.nl.translate.DownloadConditions
+import com.google.android.gms.tasks.Tasks
 import java.util.Locale
 
 class CaptureService : Service(), TextToSpeech.OnInitListener {
@@ -269,24 +278,90 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             }
         } else capturedBitmap
         try {
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            recognizer.process(InputImage.fromBitmap(bitmapForOcr, 0))
-                .addOnSuccessListener { result ->
-                    val recognizedText = result.text.trim()
-                    if (recognizedText.isBlank()) showResult("Não encontrei texto nesta tela.", false)
-                    else showResult(recognizedText, true)
+            val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+            val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+            val image = InputImage.fromBitmap(bitmapForOcr, 0)
+            val latinTask = latinRecognizer.process(image)
+            val japaneseTask = japaneseRecognizer.process(image)
+            val koreanTask = koreanRecognizer.process(image)
+
+            Tasks.whenAllSuccess<Text>(latinTask, japaneseTask, koreanTask)
+                .addOnSuccessListener { results ->
+                    val bestText = results.maxByOrNull { candidate ->
+                        val value = candidate.text
+                        val hangul = value.count { it in '\\uAC00'..'\\uD7A3' }
+                        val kana = value.count { it in '\\u3040'..'\\u30FF' }
+                        val latin = value.count { it in 'A'..'Z' || it in 'a'..'z' }
+                        val cjk = value.count { it in '\\u4E00'..'\\u9FFF' }
+                        maxOf(hangul * 4 + kana * 4 + cjk * 2, latin)
+                    }?.text?.trim().orEmpty()
+
+                    if (bestText.isBlank()) {
+                        showResult("Não encontrei texto nesta área.", false)
+                    } else {
+                        detectAndTranslate(bestText)
+                    }
                 }
                 .addOnFailureListener {
                     showResult("Não foi possível reconhecer o texto. Tente outra captura.", false)
                 }
                 .addOnCompleteListener {
                     if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
-                    recognizer.close()
+                    latinRecognizer.close()
+                    japaneseRecognizer.close()
+                    koreanRecognizer.close()
                 }
         } catch (_: Exception) {
             if (!bitmapForOcr.isRecycled) bitmapForOcr.recycle()
             showResult("Ocorreu um erro ao reconhecer a imagem. Tente novamente.", false)
         }
+    }
+
+    private fun detectAndTranslate(originalText: String) {
+        val languageIdentifier = LanguageIdentification.getClient()
+        languageIdentifier.identifyLanguage(originalText)
+            .addOnSuccessListener { languageCode ->
+                languageIdentifier.close()
+                if (languageCode == "pt" || languageCode == "und") {
+                    showResult(originalText, true)
+                    return@addOnSuccessListener
+                }
+
+                val targetLanguage = TranslateLanguage.PORTUGUESE
+                val sourceLanguage = TranslateLanguage.fromLanguageTag(languageCode)
+                if (sourceLanguage == null || sourceLanguage == targetLanguage) {
+                    showResult(originalText, true)
+                    return@addOnSuccessListener
+                }
+
+                val options = TranslatorOptions.Builder()
+                    .setSourceLanguage(sourceLanguage)
+                    .setTargetLanguage(targetLanguage)
+                    .build()
+                val translator = Translation.getClient(options)
+                val conditions = DownloadConditions.Builder().build()
+                translator.downloadModelIfNeeded(conditions)
+                    .addOnSuccessListener {
+                        translator.translate(originalText)
+                            .addOnSuccessListener { translated ->
+                                showResult(translated, true)
+                                translator.close()
+                            }
+                            .addOnFailureListener {
+                                showResult("Não consegui traduzir este texto. Texto original:\\n$originalText", true)
+                                translator.close()
+                            }
+                    }
+                    .addOnFailureListener {
+                        showResult("Não consegui baixar o modelo de tradução. Conecte-se à internet e tente novamente.\\n\\nTexto original:\\n$originalText", false)
+                        translator.close()
+                    }
+            }
+            .addOnFailureListener {
+                languageIdentifier.close()
+                showResult(originalText, true)
+            }
     }
 
     private fun showResult(text: String, autoSpeak: Boolean) {
@@ -299,7 +374,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 setBackgroundColor(0x66000000.toInt())
             }
             val heading = TextView(this).apply {
-                this.text = "TEXTO RECONHECIDO"
+                this.text = "TRADUÇÃO / TEXTO EM PORTUGUÊS"
                 textSize = 14f
                 setTextColor(0xFFD6AD55.toInt())
             }
