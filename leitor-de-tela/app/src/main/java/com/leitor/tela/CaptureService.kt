@@ -24,6 +24,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -765,27 +766,77 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 setPadding(0, 10, 0, 10)
             }
             val scroll = ScrollView(this).apply { addView(body) }
-            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speak(text) } }
-            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { tts?.stop() } }
-            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val saveDiagnostic = Button(this).apply {
-                this.text = "SALVAR PRINT + RELATÓRIO DE ERRO"
-                textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 3, 6, 3)
-                setOnClickListener { saveDiagnosticFiles() }
+            fun makeControl(iconRes: Int, label: String, action: () -> Unit): LinearLayout {
+                val control = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(dp(3), dp(7), dp(3), dp(5))
+                    isClickable = true
+                    isFocusable = true
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(0x33101012)
+                        cornerRadius = dp(12).toFloat()
+                        setStroke(dp(1), 0x66D6AD55)
+                    }
+                    setOnClickListener { action() }
+                }
+                val icon = ImageView(this).apply {
+                    setImageResource(iconRes)
+                    setColorFilter(0xFFFFD778.toInt())
+                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                }
+                control.addView(icon, LinearLayout.LayoutParams(dp(25), dp(25)))
+                val caption = TextView(this).apply {
+                    text = label
+                    textSize = 8f
+                    gravity = Gravity.CENTER
+                    setTextColor(0xFFFFE7B0.toInt())
+                    setPadding(0, dp(4), 0, 0)
+                    maxLines = 1
+                }
+                control.addView(caption)
+                return control
+            }
+            val controls = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            val controlItems = listOf(
+                makeControl(android.R.drawable.ic_menu_camera, "PRINT") { saveDiagnosticFiles() },
+                makeControl(android.R.drawable.ic_media_play, "REPETIR") { speak(text) },
+                makeControl(android.R.drawable.ic_media_ff, "ACELERAR") {
+                    speechRate = (speechRate + 0.15f).coerceAtMost(1.8f)
+                    tts?.setSpeechRate(speechRate)
+                    speak(text)
+                },
+                makeControl(android.R.drawable.ic_media_pause, "PAUSAR") { tts?.stop() }
+            )
+            controlItems.forEach { item ->
+                controls.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
+                    setMargins(dp(3), dp(5), dp(3), dp(5))
+                })
             }
             val shareDiagnostic = Button(this).apply {
                 this.text = "COMPARTILHAR PRINT + RELATÓRIO"
-                textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 3, 6, 3)
+                textSize = 9f
+                minHeight = 0
+                minimumHeight = 0
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                setTextColor(0xFFFFE7B0.toInt())
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0x33101012)
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), 0x66D6AD55)
+                }
                 setOnClickListener { shareDiagnosticFiles() }
             }
-            val close = Button(this).apply { this.text = "FECHAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-            panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster)
+            panel.addView(controls, LinearLayout.LayoutParams(-1, dp(68)))
             if (pendingDiagnosticBitmap != null) {
-                panel.addView(saveDiagnostic)
-                panel.addView(shareDiagnostic)
+                panel.addView(shareDiagnostic, LinearLayout.LayoutParams(-1, dp(38)).apply {
+                    topMargin = dp(3)
+                })
             }
             panel.addView(close)
             resultWindow = panel
