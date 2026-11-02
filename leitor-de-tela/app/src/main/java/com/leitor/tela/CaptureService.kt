@@ -65,6 +65,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private var floatingButton: Button? = null
     private var languagePickerWindow: LinearLayout? = null
     private var resultWindow: LinearLayout? = null
+    private var movableCloseHandle: TextView? = null
     private var selectionWindow: FrameLayout? = null
     private var selectedArea: RectF? = null
     private var tts: TextToSpeech? = null
@@ -796,11 +797,71 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 PixelFormat.TRANSLUCENT
             ).apply { gravity = Gravity.CENTER }
             wm.addView(panel, p)
+            showMovableCloseHandle()
             lastDiagnosticReport += "\nResultado mostrado ao usuário: ${text.take(2000)}\n"
             if (autoSpeak) speak(text)
         }
     }
 
+
+    // Botão X independente e arrastável: pode ser reposicionado sem mover o painel.
+    private fun showMovableCloseHandle() {
+        movableCloseHandle?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        val handle = TextView(this).apply {
+            text = "×"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFD778.toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(0xE6101012.toInt())
+                setStroke(dp(1), 0xFFD6AD55.toInt())
+            }
+            elevation = dp(8).toFloat()
+        }
+        val params = WindowManager.LayoutParams(
+            dp(42), dp(42),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(14); y = dp(90) }
+        var downX = 0f
+        var downY = 0f
+        var originX = 0
+        var originY = 0
+        var dragged = false
+        handle.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    originX = params.x
+                    originY = params.y
+                    dragged = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    if (kotlin.math.abs(dx) > dp(5) || kotlin.math.abs(dy) > dp(5)) dragged = true
+                    if (dragged) {
+                        params.x = (originX - dx.toInt()).coerceAtLeast(0)
+                        params.y = (originY + dy.toInt()).coerceAtLeast(0)
+                        try { wm.updateViewLayout(view, params) } catch (_: Exception) {}
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragged) removeResult()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
+        movableCloseHandle = handle
+        try { wm.addView(handle, params) } catch (_: Exception) { movableCloseHandle = null }
+    }
 
     private fun saveDiagnosticFiles(): Uri? {
         val bitmap = pendingDiagnosticBitmap
@@ -878,6 +939,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
     private fun removeResult() {
         resultWindow?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         resultWindow = null
+        movableCloseHandle?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        movableCloseHandle = null
     }
 
     override fun onInit(status: Int) {
