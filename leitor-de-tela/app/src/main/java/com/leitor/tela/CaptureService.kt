@@ -765,21 +765,21 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 setPadding(0, 10, 0, 10)
             }
             val scroll = ScrollView(this).apply { addView(body) }
-            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speak(text) } }
-            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { tts?.stop() } }
-            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
-            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val listen = Button(this).apply { this.text = "OUVIR / CONTINUAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speak(text) } }
+            val pause = Button(this).apply { this.text = "PAUSAR VOZ"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { tts?.stop() } }
+            val slower = Button(this).apply { this.text = "FALAR MAIS DEVAGAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speechRate = (speechRate - 0.15f).coerceAtLeast(0.55f); tts?.setSpeechRate(speechRate); speak(text) } }
+            val faster = Button(this).apply { this.text = "FALAR MAIS RÁPIDO"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { speechRate = (speechRate + 0.15f).coerceAtMost(1.8f); tts?.setSpeechRate(speechRate); speak(text) } }
             val saveDiagnostic = Button(this).apply {
                 this.text = "SALVAR PRINT + RELATÓRIO DE ERRO"
-                textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 4, 8, 4)
+                textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 3, 6, 3)
                 setOnClickListener { saveDiagnosticFiles() }
             }
             val shareDiagnostic = Button(this).apply {
                 this.text = "COMPARTILHAR PRINT + RELATÓRIO"
-                textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 4, 8, 4)
+                textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 3, 6, 3)
                 setOnClickListener { shareDiagnosticFiles() }
             }
-            val close = Button(this).apply { this.text = "FECHAR"; textSize = 10f; minHeight = 0; minimumHeight = 0; setPadding(8, 2, 8, 2); setOnClickListener { removeResult() } }
+            val close = Button(this).apply { this.text = "FECHAR"; textSize = 8f; minHeight = 0; minimumHeight = 0; setPadding(6, 2, 6, 2); setOnClickListener { removeResult() } }
             panel.addView(heading)
             panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             panel.addView(listen); panel.addView(pause); panel.addView(slower); panel.addView(faster)
