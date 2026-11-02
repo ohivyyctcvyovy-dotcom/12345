@@ -787,7 +787,7 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                 }
                 control.addView(icon, LinearLayout.LayoutParams(dp(25), dp(25)))
                 val caption = TextView(this).apply {
-                    text = label
+                    this.text = label
                     textSize = 8f
                     gravity = Gravity.CENTER
                     setTextColor(0xFFFFE7B0.toInt())
@@ -838,7 +838,6 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     topMargin = dp(3)
                 })
             }
-            panel.addView(close)
             resultWindow = panel
             val p = WindowManager.LayoutParams(
                 (resources.displayMetrics.widthPixels * 0.88f).toInt(),
