@@ -809,6 +809,11 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     tts?.setSpeechRate(speechRate)
                     speak(text)
                 },
+                makeControl(android.R.drawable.ic_media_play, "NORMAL") {
+                    speechRate = 1.0f
+                    tts?.setSpeechRate(speechRate)
+                    speak(text)
+                },
                 makeControl(android.R.drawable.ic_media_pause, "PAUSAR") { tts?.stop() }
             )
             controlItems.forEach { item ->
@@ -874,7 +879,12 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(14); y = dp(90) }
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            val savedPosition = getSharedPreferences("reader_ui", Context.MODE_PRIVATE)
+            x = savedPosition.getInt("close_x", dp(14)).coerceAtLeast(0)
+            y = savedPosition.getInt("close_y", dp(90)).coerceAtLeast(0)
+        }
         var downX = 0f
         var downY = 0f
         var originX = 0
@@ -902,7 +912,15 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!dragged) removeResult()
+                    if (dragged) {
+                        getSharedPreferences("reader_ui", Context.MODE_PRIVATE)
+                            .edit()
+                            .putInt("close_x", params.x)
+                            .putInt("close_y", params.y)
+                            .apply()
+                    } else {
+                        removeResult()
+                    }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> true
