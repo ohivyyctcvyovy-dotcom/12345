@@ -748,8 +748,8 @@ class CaptureService : Service(), TextToSpeech.OnInitListener {
             removeResult()
             val panel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(16, 14, 16, 14)
-                setBackgroundColor(0x66000000.toInt())
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                setBackgroundColor(Color.TRANSPARENT)
             }
             val heading = TextView(this).apply {
                 this.text = "TRADUÇÃO / TEXTO EM PORTUGUÊS"
