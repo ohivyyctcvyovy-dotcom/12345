@@ -1,3 +1,4 @@
-name = "aurora-assistente-api"
+name = "aurora-api"
 main = "worker.js"
-compatibility_date = "2026-10-24"
+compatibility_date = "2026-11-04"
+workers_dev = true
