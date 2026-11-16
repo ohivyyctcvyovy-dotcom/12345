@@ -44,3 +44,8 @@ Os dados são guardados no `localStorage` do navegador neste dispositivo. Não s
 - Notificações de lembrete com permissões explícitas.
 - Exportar/importar memórias e tarefas.
 - Empacotar como APK nativo usando Capacitor ou uma ferramenta Android.
+
+
+## ImageLab AI
+
+Projeto Android de criação e edição de imagens: [abrir a pasta ImageLabAI](./ImageLabAI/README.md). O app inicial já oferece interface roxa, seleção de fotos e entrada de voz. A geração por IA local ainda está em avaliação técnica para evitar incluir um modelo que não rode no aparelho-alvo.
