@@ -176,7 +176,7 @@ public class MainActivity extends Activity {
         editTab.setOnClickListener(v -> switchTab(false, createTab, editTab));
         voice.setOnClickListener(v -> speak(SPEAK_CREATE));
         reference.setOnClickListener(v -> pickImage(PICK_CREATE_IMAGE));
-        chooseModel.setOnClickListener(v -> downloadModel(chooseModel));
+        chooseModel.setOnClickListener(v -> showModelDownloadDialog(chooseModel));
         generate.setOnClickListener(v -> generateImage(generate));
         diagnostic.setOnClickListener(v -> showDiagnostic());
         pickEdit.setOnClickListener(v -> pickImage(PICK_EDIT_IMAGE));
@@ -217,6 +217,19 @@ public class MainActivity extends Activity {
                 "\n\nO app usa CPU genérica arm64; não exige GPU Adreno. Para proteger o aparelho, a geração só começa com pelo menos 1,5 GB de RAM disponível. Isso é uma margem de segurança, não garantia de que o modelo vai funcionar.";
         new AlertDialog.Builder(this).setTitle("Diagnóstico do aparelho")
                 .setMessage(message).setPositiveButton("Entendi", null).show();
+    }
+
+    private void showModelDownloadDialog(Button button) {
+        if (modelUri != null && new File(modelUri.getPath()).isFile()) {
+            Toast.makeText(this, "A IA SDXS-512 Tiny já está carregada.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Modelo de IA disponível")
+                .setMessage("SDXS-512 Tiny Q8 GGUF\nAproximadamente 683 MB\n\nEste é o único modelo disponível nesta versão.")
+                .setPositiveButton("Baixar e carregar", (dialog, which) -> downloadModel(button))
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void downloadModel(Button button) {
