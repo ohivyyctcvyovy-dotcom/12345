@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.speech.RecognizerIntent;
@@ -21,6 +22,11 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
 import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -62,8 +68,9 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
-        modelUri = Uri.parse(getPreferences(MODE_PRIVATE).getString("model_uri", ""));
-        if ("".equals(modelUri.toString())) modelUri = null;
+        String savedModelPath = getPreferences(MODE_PRIVATE).getString("model_path", "");
+        File savedModel = savedModelPath.isEmpty() ? null : new File(savedModelPath);
+        modelUri = savedModel != null && savedModel.isFile() ? Uri.fromFile(savedModel) : null;
         build();
     }
 
@@ -112,13 +119,13 @@ public class MainActivity extends Activity {
         createPanel.addView(createStatus);
 
         createPanel.addView(txt("MODELO DE IA LOCAL", 13, PURPLE, true));
-        modelStatus = txt(modelUri == null ? "Nenhum modelo selecionado. Escolha um arquivo GGUF compatível." :
-                "Modelo selecionado: " + savedModelName(), 12, 0xFFD7C7E8, false);
+        modelStatus = txt(modelUri == null ? "A IA SDXS-512 Tiny ainda não foi baixada." :
+                "IA pronta: SDXS-512 Tiny Q8", 12, 0xFFD7C7E8, false);
         LinearLayout.LayoutParams modelStatusParams = new LinearLayout.LayoutParams(-1, -2);
         modelStatusParams.topMargin = dp(6);
         createPanel.addView(modelStatus, modelStatusParams);
 
-        Button chooseModel = btn("＋ Selecionar modelo GGUF", false);
+        Button chooseModel = btn("↓ Carregar IA SDXS-512 Tiny", false);
         LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(-1, dp(48));
         chooseParams.topMargin = dp(8);
         createPanel.addView(chooseModel, chooseParams);
@@ -169,7 +176,7 @@ public class MainActivity extends Activity {
         editTab.setOnClickListener(v -> switchTab(false, createTab, editTab));
         voice.setOnClickListener(v -> speak(SPEAK_CREATE));
         reference.setOnClickListener(v -> pickImage(PICK_CREATE_IMAGE));
-        chooseModel.setOnClickListener(v -> pickModel());
+        chooseModel.setOnClickListener(v -> downloadModel(chooseModel));
         generate.setOnClickListener(v -> generateImage(generate));
         diagnostic.setOnClickListener(v -> showDiagnostic());
         pickEdit.setOnClickListener(v -> pickImage(PICK_EDIT_IMAGE));
@@ -210,6 +217,73 @@ public class MainActivity extends Activity {
                 "\n\nO app usa CPU genérica arm64; não exige GPU Adreno. Para proteger o aparelho, a geração só começa com pelo menos 1,5 GB de RAM disponível. Isso é uma margem de segurança, não garantia de que o modelo vai funcionar.";
         new AlertDialog.Builder(this).setTitle("Diagnóstico do aparelho")
                 .setMessage(message).setPositiveButton("Entendi", null).show();
+    }
+
+    private void downloadModel(Button button) {
+        if (modelUri != null && new File(modelUri.getPath()).isFile()) {
+            Toast.makeText(this, "A IA já está carregada no aplicativo.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        button.setEnabled(false);
+        modelStatus.setText("Preparando o download da IA SDXS-512 Tiny...");
+        new Thread(() -> {
+            File target = null;
+            HttpURLConnection connection = null;
+            try {
+                File folder = getExternalFilesDir(null);
+                if (folder == null) folder = getFilesDir();
+                StatFs storage = new StatFs(folder.getAbsolutePath());
+                long available = storage.getAvailableBytes();
+                if (available < 750L * 1024L * 1024L) {
+                    throw new Exception("É necessário liberar pelo menos 750 MB de espaço no celular para baixar o modelo.");
+                }
+                target = new File(folder, "sdxs-512-tinySDdistilled_Q8_0.gguf");
+                URL url = new URL("https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF/resolve/3144d898d61492f8382ffcabec055733fc5b2a0e/sdxs-512-tinySDdistilled_Q8_0.gguf?download=true");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(60000);
+                connection.setInstanceFollowRedirects(true);
+                connection.connect();
+                int response = connection.getResponseCode();
+                if (response < 200 || response >= 300) throw new Exception("O servidor não liberou o download (código " + response + ").");
+                long total = connection.getContentLengthLong();
+                try (InputStream input = connection.getInputStream();
+                     FileOutputStream output = new FileOutputStream(target)) {
+                    byte[] buffer = new byte[1024 * 256];
+                    long received = 0;
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, count);
+                        received += count;
+                        if (total > 0 && received % (5L * 1024L * 1024L) < buffer.length) {
+                            final int percent = (int) (received * 100 / total);
+                            runOnUiThread(() -> modelStatus.setText("Baixando a IA... " + percent + "%"));
+                        }
+                    }
+                    output.getFD().sync();
+                }
+                if (target.length() < 500L * 1024L * 1024L) throw new Exception("O download ficou incompleto. Verifique a internet e tente novamente.");
+                File completed = target;
+                runOnUiThread(() -> {
+                    modelUri = Uri.fromFile(completed);
+                    getPreferences(MODE_PRIVATE).edit().putString("model_path", completed.getAbsolutePath()).apply();
+                    modelStatus.setText("IA pronta: SDXS-512 Tiny Q8");
+                    button.setEnabled(true);
+                    button.setText("✓ IA carregada");
+                    Toast.makeText(this, "Modelo baixado e pronto para usar.", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                if (target != null && target.exists()) target.delete();
+                String message = error.getMessage() == null ? "Não foi possível baixar a IA." : error.getMessage();
+                runOnUiThread(() -> {
+                    modelStatus.setText("A IA ainda não foi baixada.");
+                    button.setEnabled(true);
+                    showError(message + "\n\nConecte-se ao Wi-Fi ou confira o espaço livre e tente novamente.");
+                });
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }, "ImageLab-ModelDownload").start();
     }
 
     private void pickModel() {
