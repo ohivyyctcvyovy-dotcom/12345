@@ -213,31 +213,35 @@ public class MainActivity extends Activity {
     }
 
     private void pickModel() {
-        // O modelo é um arquivo .gguf. Bibliotecas .so, como libc++_shared.so,
-        // fazem parte do aplicativo e não são modelos de IA.
+        // Abra o seletor de documentos diretamente. Em alguns aparelhos Samsung,
+        // envolver ACTION_OPEN_DOCUMENT em ACTION_CHOOSER deixa uma tela branca.
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("*/*");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-                "application/octet-stream", "application/x-gguf", "application/gguf"
-        });
         intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                "application/octet-stream", "application/x-gguf", "application/gguf", "*/*"
+        });
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 
         try {
-            startActivityForResult(Intent.createChooser(intent, "Escolha o modelo SDXS (.gguf)"), PICK_MODEL);
-        } catch (Exception error) {
-            // Compatibilidade com gerenciadores de arquivos que não atendem ACTION_OPEN_DOCUMENT.
+            startActivityForResult(intent, PICK_MODEL);
+        } catch (android.content.ActivityNotFoundException error) {
+            // Fallback para gerenciadores que só oferecem ACTION_GET_CONTENT.
             Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
             fallback.setType("*/*");
             fallback.addCategory(Intent.CATEGORY_OPENABLE);
+            fallback.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                    "application/octet-stream", "application/x-gguf", "application/gguf", "*/*"
+            });
             fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             try {
-                startActivityForResult(Intent.createChooser(fallback, "Escolha o modelo SDXS (.gguf)"), PICK_MODEL);
-            } catch (Exception ignored) {
-                showError("Não foi possível abrir os arquivos. Instale ou atualize o aplicativo Arquivos do Android.");
+                startActivityForResult(fallback, PICK_MODEL);
+            } catch (Exception fallbackError) {
+                showError("O Android não conseguiu abrir o seletor de arquivos. Abra o aplicativo Arquivos do celular e tente novamente.");
             }
+        } catch (Exception error) {
+            showError("Não foi possível abrir os arquivos: " + error.getMessage());
         }
     }
 
