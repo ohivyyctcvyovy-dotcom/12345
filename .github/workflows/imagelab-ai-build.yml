@@ -34,7 +34,7 @@ jobs:
             echo "sdkmanager was not found in the hosted Android SDK."
             exit 1
           fi
-          yes | "$SDKMANAGER" --licenses
+          yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
 
       - name: Set up Gradle
