@@ -1,197 +1,31 @@
 package com.imagelab.ai;
-
-import android.app.Activity;
-import android.app.ActivityManager;
-import android.os.Bundle;
-import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.net.Uri;
-import android.speech.RecognizerIntent;
-import android.view.Gravity;
-import android.widget.*;
-import java.util.ArrayList;
-
-public class MainActivity extends Activity {
-    private final int BG = Color.rgb(16, 11, 24);
-    private final int PANEL = Color.rgb(43, 30, 60);
-    private final int PURPLE = Color.rgb(192, 132, 252);
-    private final int WHITE = Color.rgb(248, 244, 255);
-    private EditText prompt;
-    private ImageView preview;
-    private TextView status;
-    private static final int PICK_IMAGE = 10;
-    private static final int SPEECH = 11;
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        getWindow().setStatusBarColor(BG);
-        getWindow().setNavigationBarColor(BG);
-        buildScreen();
-    }
-
-    private void buildScreen() {
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(BG);
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(20), dp(24), dp(20), dp(28));
-        scroll.addView(page);
-
-        page.addView(text("ImageLab AI", 30, PURPLE, true));
-        page.addView(text("Seu estúdio de criação e edição", 14, 0xFFD7C7E8, false));
-
-        TextView createTitle = text("CRIAR IMAGEM", 13, PURPLE, true);
-        createTitle.setPadding(0, dp(24), 0, dp(8));
-        page.addView(createTitle);
-        prompt = new EditText(this);
-        prompt.setTextColor(WHITE);
-        prompt.setHintTextColor(0xFFB8A9C8);
-        prompt.setHint("Descreva a imagem ou a alteração que deseja...");
-        prompt.setTextSize(15);
-        prompt.setGravity(Gravity.TOP);
-        prompt.setMinLines(3);
-        prompt.setPadding(dp(14), dp(14), dp(14), dp(14));
-        prompt.setBackground(round(PANEL, 18));
-        page.addView(prompt, new LinearLayout.LayoutParams(-1, dp(116)));
-
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button voice = button("🎙 Falar", false);
-        Button add = button("＋ Escolher foto", false);
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(0, dp(48), 1);
-        ap.topMargin = dp(10);
-        actions.addView(voice, ap);
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, dp(48), 1);
-        bp.leftMargin = dp(8); bp.topMargin = dp(10);
-        actions.addView(add, bp);
-        page.addView(actions);
-
-        preview = new ImageView(this);
-        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        preview.setBackground(round(PANEL, 18));
-        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, dp(220));
-        pp.topMargin = dp(18);
-        page.addView(preview, pp);
-
-        status = text("Nenhuma foto selecionada.", 13, 0xFFD7C7E8, false);
-        status.setPadding(0, dp(8), 0, dp(4));
-        page.addView(status);
-
-        Button generate = button("✦  Verificar geração local", true);
-        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-1, dp(54));
-        gp.topMargin = dp(14);
-        page.addView(generate, gp);
-
-        TextView editTitle = text("EDITAR FOTO", 13, PURPLE, true);
-        editTitle.setPadding(0, dp(28), 0, dp(8));
-        page.addView(editTitle);
-        page.addView(text("Escolha uma foto da galeria e descreva a mudança: roupa, tênis, pose ou cenário. A edição generativa será ativada quando o motor local compatível estiver integrado.", 13, 0xFFD7C7E8, false));
-
-        TextView memory = text(deviceMemoryText(), 12, 0xFFB8A9C8, false);
-        memory.setPadding(0, dp(18), 0, 0);
-        page.addView(memory);
-
-        TextView foot = text("Esta versão ainda não gera imagens por IA. Ela prepara a interface e verifica o aparelho; não envia suas fotos para a internet.", 12, 0xFFB8A9C8, false);
-        foot.setPadding(0, dp(14), 0, 0);
-        page.addView(foot);
-
-        add.setOnClickListener(v -> openPicker());
-        voice.setOnClickListener(v -> startSpeech());
-        generate.setOnClickListener(v -> {
-            String p = prompt.getText().toString().trim();
-            if (p.isEmpty()) {
-                Toast.makeText(this, "Escreva ou fale o que deseja criar.", Toast.LENGTH_SHORT).show();
-            } else {
-                new AlertDialogBuilder(this).showInfo(
-                    "Motor de IA ainda não conectado",
-                    "Seu pedido foi preenchido, mas esta versão ainda não tem um modelo local integrado. Não vamos iniciar uma geração que possa fechar o aplicativo."
-                );
-            }
-        });
-        setContentView(scroll);
-    }
-
-    private String deviceMemoryText() {
-        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
-        ((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
-        double total = info.totalMem / 1073741824.0;
-        double free = info.availMem / 1073741824.0;
-        return String.format(java.util.Locale.US,
-            "Memória aproximada: %.1f GB total; %.1f GB disponível agora. O Google recomenda aparelho com pelo menos 8 GB para seu exemplo experimental de geração de imagens MediaPipe. Isso não é um teste de compatibilidade definitivo.",
-            total, free);
-    }
-
-    private void openPicker() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.setType("image/*");
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        startActivityForResult(i, PICK_IMAGE);
-    }
-
-    private void startSpeech() {
-        try {
-            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR");
-            i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale o que deseja criar ou editar");
-            startActivityForResult(i, SPEECH);
-        } catch (Exception e) {
-            Toast.makeText(this, "O reconhecimento de voz não está disponível neste aparelho.", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null) return;
-        if (requestCode == PICK_IMAGE) {
-            Uri uri = data.getData();
-            if (uri != null) {
-                try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
-                catch (Exception ignored) {}
-                preview.setImageURI(uri);
-                status.setText("Foto selecionada. Escreva ou fale a alteração desejada.");
-            }
-        } else if (requestCode == SPEECH) {
-            ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (results != null && !results.isEmpty()) {
-                String old = prompt.getText().toString();
-                prompt.setText(old.isEmpty() ? results.get(0) : old + " " + results.get(0));
-            }
-        }
-    }
-
-    private TextView text(String s, int size, int color, boolean bold) {
-        TextView t = new TextView(this);
-        t.setText(s); t.setTextSize(size); t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        return t;
-    }
-
-    private Button button(String label, boolean primary) {
-        Button b = new Button(this);
-        b.setText(label); b.setAllCaps(false); b.setTextSize(14);
-        b.setTextColor(primary ? Color.rgb(28, 15, 40) : WHITE);
-        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        b.setBackground(round(primary ? PURPLE : PANEL, 16));
-        return b;
-    }
-
-    private android.graphics.drawable.GradientDrawable round(int color, int radius) {
-        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
-        d.setColor(color); d.setCornerRadius(dp(radius));
-        return d;
-    }
-
-    private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
-
-    private static class AlertDialogBuilder {
-        private final Activity activity;
-        AlertDialogBuilder(Activity a) { activity = a; }
-        void showInfo(String title, String message) {
-            new android.app.AlertDialog.Builder(activity)
-                .setTitle(title).setMessage(message)
-                .setPositiveButton("Entendi", null).show();
-        }
-    }
+import android.app.*;import android.app.ActivityManager;import android.os.Bundle;import android.content.*;import android.graphics.Color;import android.graphics.Typeface;import android.net.Uri;import android.speech.RecognizerIntent;import android.view.Gravity;import android.view.View;import android.widget.*;import java.util.ArrayList;
+public class MainActivity extends Activity{
+ int BG=Color.rgb(16,11,24),PANEL=Color.rgb(43,30,60),PURPLE=Color.rgb(192,132,252),WHITE=Color.rgb(248,244,255);
+ LinearLayout page,createPanel,editPanel;EditText createPrompt,editPrompt;ImageView createPreview,editPreview;TextView createStatus,editStatus;Spinner models;
+ static final int PC=10,PE=12,SC=11,SE=13;
+ public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);build();}
+ void build(){
+ ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(BG);page=new LinearLayout(this);page.setOrientation(1);page.setPadding(dp(18),dp(22),dp(18),dp(28));scroll.addView(page);
+ page.addView(txt("ImageLab AI",29,PURPLE,true));page.addView(txt("Estúdio de criação e edição no celular",13,0xFFD7C7E8,false));
+ LinearLayout tabs=new LinearLayout(this);Button ct=btn("✦ Criar imagem",true),et=btn("▧ Modificar foto",false);LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(48),1);a.topMargin=dp(18);tabs.addView(ct,a);LinearLayout.LayoutParams z=new LinearLayout.LayoutParams(0,dp(48),1);z.leftMargin=dp(8);z.topMargin=dp(18);tabs.addView(et,z);page.addView(tabs);
+ createPanel=new LinearLayout(this);createPanel.setOrientation(1);createPanel.setPadding(0,dp(18),0,0);createPanel.addView(txt("CRIAR UMA IMAGEM NOVA",14,PURPLE,true));createPrompt=edit("Descreva a imagem que deseja criar...");createPanel.addView(createPrompt,new LinearLayout.LayoutParams(-1,dp(110)));
+ LinearLayout ca=new LinearLayout(this);Button cv=btn("🎙 Falar",false),cp=btn("＋ Foto de referência",false);ca.addView(cv,new LinearLayout.LayoutParams(0,dp(46),1));LinearLayout.LayoutParams cpl=new LinearLayout.LayoutParams(0,dp(46),1);cpl.leftMargin=dp(8);ca.addView(cp,cpl);createPanel.addView(ca);
+ createPreview=preview();createPanel.addView(createPreview,previewParams());createStatus=txt("Nenhuma referência selecionada.",12,0xFFD7C7E8,false);createPanel.addView(createStatus);createPanel.addView(txt("MODELO DE GERAÇÃO",13,PURPLE,true));
+ models=new Spinner(this);String[] choices={"SDXS-512 Tiny — 683 MB (mais leve)","SD-Turbo — cerca de 2 GB (mais pesado)"};ArrayAdapter<String> ad=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,choices);ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);models.setAdapter(ad);createPanel.addView(models,new LinearLayout.LayoutParams(-1,dp(48)));Button gen=btn("✦ Verificar geração",true);LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,dp(50));gp.topMargin=dp(10);createPanel.addView(gen,gp);page.addView(createPanel);
+ editPanel=new LinearLayout(this);editPanel.setOrientation(1);editPanel.setPadding(0,dp(18),0,0);editPanel.setVisibility(View.GONE);editPanel.addView(txt("MODIFICAR UMA FOTO EXISTENTE",14,PURPLE,true));editPanel.addView(txt("Esta aba é separada. Escolha uma foto e diga o que deseja mudar.",13,0xFFD7C7E8,false));Button pick=btn("＋ Escolher foto da galeria",false);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(48));pp.topMargin=dp(10);editPanel.addView(pick,pp);editPreview=preview();editPanel.addView(editPreview,previewParams());editStatus=txt("Nenhuma foto selecionada.",12,0xFFD7C7E8,false);editPanel.addView(editStatus);editPrompt=edit("Ex.: mude o fundo, a roupa ou a iluminação...");LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(110));ep.topMargin=dp(10);editPanel.addView(editPrompt,ep);Button ev=btn("🎙 Ditar alteração",false);editPanel.addView(ev);Button apply=btn("✦ Aplicar mudança na foto",true);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,dp(50));ap.topMargin=dp(10);editPanel.addView(apply,ap);page.addView(editPanel);
+ TextView memory=txt(mem(),12,0xFFB8A9C8,false);LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(20);page.addView(memory,mp);TextView note=txt("AVISO: esta versão prepara as duas abas, seleção de fotos e comandos por voz. Os motores de IA ainda não estão integrados; por isso, gerar ou modificar imagens automaticamente ainda não funciona. As fotos selecionadas ficam no aparelho.",12,0xFFB8A9C8,false);LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(12);page.addView(note,np);
+ ct.setOnClickListener(v->tab(true,ct,et));et.setOnClickListener(v->tab(false,ct,et));cp.setOnClickListener(v->pick(PC));pick.setOnClickListener(v->pick(PE));cv.setOnClickListener(v->speak(SC));ev.setOnClickListener(v->speak(SE));gen.setOnClickListener(v->info(false));apply.setOnClickListener(v->info(true));setContentView(scroll);
+ }
+ void tab(boolean c,Button ct,Button et){createPanel.setVisibility(c?View.VISIBLE:View.GONE);editPanel.setVisibility(c?View.GONE:View.VISIBLE);ct.setBackground(bg(c?PURPLE:PANEL));ct.setTextColor(c?Color.rgb(28,15,40):WHITE);et.setBackground(bg(c?PANEL:PURPLE));et.setTextColor(c?WHITE:Color.rgb(28,15,40));}
+ void info(boolean editing){String m=editing?"A foto e o pedido estão nesta aba separada. A edição por IA ainda precisa do motor local integrado. Nenhuma alteração foi aplicada.":"Modelo selecionado: "+models.getSelectedItem()+". O motor de geração ainda não foi integrado. Nenhuma geração será iniciada nesta versão.";new AlertDialog.Builder(this).setTitle(editing?"Edição ainda não ativada":"Geração ainda não ativada").setMessage(m).setPositiveButton("Entendi",null).show();}
+ String mem(){ActivityManager.MemoryInfo i=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(i);return String.format(java.util.Locale.US,"Memória agora: %.1f GB total; %.1f GB disponível. O modelo de 683 MB também precisa de memória extra para funcionar.",i.totalMem/1073741824.0,i.availMem/1073741824.0);}
+ EditText edit(String h){EditText e=new EditText(this);e.setTextColor(WHITE);e.setHintTextColor(0xFFB8A9C8);e.setHint(h);e.setTextSize(14);e.setGravity(Gravity.TOP);e.setMinLines(3);e.setPadding(dp(14),dp(14),dp(14),dp(14));e.setBackground(bg(PANEL));return e;}
+ ImageView preview(){ImageView v=new ImageView(this);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setBackground(bg(PANEL));return v;}LinearLayout.LayoutParams previewParams(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(180));p.topMargin=dp(10);p.bottomMargin=dp(8);return p;}
+ void pick(int r){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("image/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,r);}
+ void speak(int r){try{Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"pt-BR");startActivityForResult(i,r);}catch(Exception e){Toast.makeText(this,"Voz indisponível.",Toast.LENGTH_LONG).show();}}
+ protected void onActivityResult(int r,int result,Intent d){super.onActivityResult(r,result,d);if(result!=RESULT_OK||d==null)return;if(r==PC||r==PE){Uri u=d.getData();if(u==null)return;try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}if(r==PC){createPreview.setImageURI(u);createStatus.setText("Referência selecionada.");}else{editPreview.setImageURI(u);editStatus.setText("Foto selecionada para modificação.");}}else if(r==SC||r==SE){ArrayList<String>x=d.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);if(x!=null&&!x.isEmpty())(r==SC?createPrompt:editPrompt).setText(x.get(0));}}
+ TextView txt(String s,int n,int c,boolean b){TextView t=new TextView(this);t.setText(s);t.setTextSize(n);t.setTextColor(c);if(b)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
+ Button btn(String s,boolean p){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(13);b.setTextColor(p?Color.rgb(28,15,40):WHITE);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setBackground(bg(p?PURPLE:PANEL));return b;}
+ android.graphics.drawable.GradientDrawable bg(int c){android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();d.setColor(c);d.setCornerRadius(dp(16));return d;}int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
 }
