@@ -213,10 +213,32 @@ public class MainActivity extends Activity {
     }
 
     private void pickModel() {
+        // O modelo é um arquivo .gguf. Bibliotecas .so, como libc++_shared.so,
+        // fazem parte do aplicativo e não são modelos de IA.
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                "application/octet-stream", "application/x-gguf", "application/gguf"
+        });
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        startActivityForResult(intent, PICK_MODEL);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+
+        try {
+            startActivityForResult(Intent.createChooser(intent, "Escolha o modelo SDXS (.gguf)"), PICK_MODEL);
+        } catch (Exception error) {
+            // Compatibilidade com gerenciadores de arquivos que não atendem ACTION_OPEN_DOCUMENT.
+            Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
+            fallback.setType("*/*");
+            fallback.addCategory(Intent.CATEGORY_OPENABLE);
+            fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(Intent.createChooser(fallback, "Escolha o modelo SDXS (.gguf)"), PICK_MODEL);
+            } catch (Exception ignored) {
+                showError("Não foi possível abrir os arquivos. Instale ou atualize o aplicativo Arquivos do Android.");
+            }
+        }
     }
 
     private String displayName(Uri uri) {
@@ -354,7 +376,7 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            if (requestCode == PICK_MODEL && modelStatus != null) modelStatus.setText("Nenhum modelo selecionado.");
+            // Cancelar o seletor não apaga um modelo escolhido anteriormente.
             return;
         }
         Uri uri = data.getData();
@@ -365,8 +387,11 @@ public class MainActivity extends Activity {
                 return;
             }
             try {
-                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            } catch (Exception ignored) { }
+                int grantedFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                if (grantedFlags != 0) getContentResolver().takePersistableUriPermission(uri, grantedFlags);
+            } catch (Exception ignored) {
+                // Alguns provedores permitem leitura apenas durante a sessão atual.
+            }
             modelUri = uri;
             getPreferences(MODE_PRIVATE).edit().putString("model_uri", uri.toString()).apply();
             modelStatus.setText("Modelo selecionado: " + name + "\nO arquivo permanece no armazenamento escolhido.");
