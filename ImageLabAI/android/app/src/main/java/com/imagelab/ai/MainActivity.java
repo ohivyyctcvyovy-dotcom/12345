@@ -41,7 +41,6 @@ public class MainActivity extends Activity {
     private static final int SPEAK_CREATE = 11;
     private static final int SPEAK_EDIT = 13;
     private static final int PICK_MODEL = 14;
-    private static final long MIN_FREE_RAM_BYTES = 1536L * 1024L * 1024L;
 
     private static boolean nativeReady;
     static {
@@ -167,7 +166,7 @@ public class MainActivity extends Activity {
         editPanel.addView(apply, applyParams);
         page.addView(editPanel);
 
-        TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO EM TESTE. O modelo é escolhido pelo usuário e fica no próprio celular. A geração ainda precisa ser validada neste aparelho; se a memória estiver baixa, o app bloqueia a tentativa para evitar travamentos. A edição de fotos ainda não está conectada. Nenhuma foto ou descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
+        TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO EM TESTE. O modelo fica no próprio celular. A geração será tentada mesmo com pouca RAM; se faltar memória, o Android pode encerrar o aplicativo. A edição de fotos ainda não está conectada. Nenhuma foto ou descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.topMargin = dp(20);
         page.addView(note, noteParams);
@@ -214,7 +213,7 @@ public class MainActivity extends Activity {
                 "\nArquitetura arm64: " + (arm64 ? "sim" : "não detectada") +
                 "\nMotor C/C++ carregado: " + (nativeReady ? "sim" : "não") +
                 "\n" + memorySummary() +
-                "\n\nO app usa CPU genérica arm64; não exige GPU Adreno. Para proteger o aparelho, a geração só começa com pelo menos 1,5 GB de RAM disponível. Isso é uma margem de segurança, não garantia de que o modelo vai funcionar.";
+                "\n\nO app usa CPU genérica arm64; não exige GPU Adreno. A geração pode ser tentada com pouca RAM, mas o Android pode fechar o aplicativo se faltar memória.";
         new AlertDialog.Builder(this).setTitle("Diagnóstico do aparelho")
                 .setMessage(message).setPositiveButton("Entendi", null).show();
     }
@@ -359,15 +358,6 @@ public class MainActivity extends Activity {
         String prompt = createPrompt.getText().toString().trim();
         if (prompt.isEmpty()) {
             showError("Escreva ou dite uma descrição para a imagem.");
-            return;
-        }
-
-        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
-        ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
-        if (info.availMem < MIN_FREE_RAM_BYTES) {
-            showError("A RAM disponível está baixa (" +
-                    String.format(Locale.US, "%.2f GB", info.availMem / 1073741824.0) +
-                    "). Para evitar que o celular trave, a geração não foi iniciada. Feche outros aplicativos e tente novamente quando houver pelo menos 1,5 GB disponíveis.");
             return;
         }
 
