@@ -378,8 +378,7 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             int[] pixels = null;
             String error = null;
-            try (ParcelFileDescriptor descriptor =
-                         getContentResolver().openFileDescriptor(selectedModel, "r")) {
+            try (ParcelFileDescriptor descriptor = openModelDescriptor(selectedModel)) {
                 if (descriptor == null) {
                     error = "Não foi possível abrir o arquivo do modelo.";
                 } else {
@@ -410,6 +409,17 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, saved == null ? "Imagem gerada." : "Imagem salva na galeria.", Toast.LENGTH_LONG).show();
             });
         }, "ImageLab-Generate").start();
+    }
+
+    private ParcelFileDescriptor openModelDescriptor(Uri uri) throws java.io.FileNotFoundException {
+        if (uri == null) return null;
+        // Modelos baixados pelo próprio app usam file://; abra-os diretamente.
+        // Arquivos escolhidos pelo usuário continuam usando content://.
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+            return ParcelFileDescriptor.open(new File(uri.getPath()),
+                    ParcelFileDescriptor.MODE_READ_ONLY);
+        }
+        return getContentResolver().openFileDescriptor(uri, "r");
     }
 
     private String saveImage(Bitmap bitmap) {
