@@ -1,19 +1,25 @@
-# Estado dos motores de imagem
+# Estado do motor de imagens do ImageLab AI
 
-## Modelos investigados
-- **SDXS-512 Tiny (683 MB, Q8):** candidato mais leve. O runtime LlamaDart/stable-diffusion.cpp documenta geração no Android arm64 e validação em Galaxy A53, S24 e Pixel 9 Pro. O tamanho do arquivo não é a RAM total necessária. No Galaxy A53, a medição publicada foi de 26–29 segundos por imagem em 512x512, uma etapa. Não há garantia para este aparelho.
-- **SD-Turbo Q8 + TAESD (aprox. 2 GB):** segundo modelo documentado, mas pesado; o teste publicado informa que a verificação de memória recusou sua execução no Galaxy A53. Não deve ser selecionado como padrão.
-- **Stable Diffusion 1.5:** alternativa conhecida, porém não incluída como motor integrado nesta versão.
+## Motor nativo adicionado
+- O aplicativo Android agora inclui uma camada JNI em C++ que chama a API C oficial do projeto [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp).
+- Código upstream fixado no commit `532d2c15c430a785a712b2d94281f04e733008a4` para builds reproduzíveis.
+- Compilação configurada para Android `arm64-v8a`, CPU genérica, sem OpenCL/Adreno, Vulkan, CUDA ou OpenMP.
+- O motor usa memory mapping para evitar copiar todo o arquivo de modelo para a memória do aplicativo.
+- A tela permite escolher um arquivo GGUF local. O arquivo não é baixado automaticamente e não é enviado para servidor.
+- A primeira rotina de inferência está preparada para SDXS: 512×512, uma etapa e guidance 1. O resultado é convertido em bitmap e salvo em Pictures/ImageLabAI.
+- O app limita a tentativa a aparelhos com pelo menos 1,5 GB de RAM disponível como proteção inicial. Esse limite é uma margem conservadora, não uma garantia de execução.
 
-## Edição de foto
-O runtime LlamaDart documenta operações de imagem-para-imagem e edição com máscara em receitas específicas. Isso não significa que a função esteja conectada neste aplicativo. A aba de edição atual permite selecionar uma foto e escrever/ditar instruções, mas ainda não aplica mudanças com IA.
+## Modelo candidato
+- **SDXS-512 Tiny Q8 GGUF (683 MB):** candidato inicial, não embutido no APK. A documentação upstream descreve SDXS-512 e exige CFG 1 e uma etapa. O arquivo GGUF deve ser escolhido pelo usuário.
+- A aceitação do arquivo, a memória de pico, o tempo e a qualidade precisam ser validados em um aparelho real.
+- O tamanho do arquivo não corresponde à RAM total necessária. Em um aparelho com cerca de 0,7 GB livres, o app deve bloquear a geração para reduzir o risco de travamento.
 
-## Estado real deste APK
-- Duas abas separadas: criar imagem e modificar foto existente.
-- Seleção de imagem independente em cada aba.
-- Campo de instruções independente e entrada por voz.
-- Seletor informativo para SDXS e SD-Turbo.
-- O app agora faz uma verificação preliminar local de ABI arm64, flags de CPU (dot-product e FP16) e memória livre antes de qualquer tentativa.
-- A verificação é apenas um filtro inicial: não confirma que a inferência funcionará.
-- Os motores nativos, os arquivos dos modelos, o descarregamento de modelos e a inferência ainda NÃO estão integrados.
-- Não anunciar geração ou edição por IA como funcional até integrar o runtime, verificar a arquitetura ARM do aparelho e testar no telefone com a memória disponível.
+## Limitações atuais
+- A integração C/C++ foi adicionada ao código, mas ainda precisa passar pela compilação NDK e por uma geração real em hardware antes de ser considerada funcional.
+- O Galaxy A04e ainda não foi validado com esse motor/modelo. Não prometer que a geração local funcionará nele.
+- A aba de edição de fotos ainda não está conectada à inferência image-to-image/inpainting.
+- O APK não contém os pesos do modelo; o modelo é selecionado no armazenamento do próprio telefone.
+- Nenhum prompt ou arquivo de imagem é enviado a servidores pelo fluxo de geração implementado.
+
+## Licença
+- O código stable-diffusion.cpp é incorporado como dependência de build e permanece sujeito à licença e avisos do repositório original. O modelo SDXS tem licença própria OpenRAIL++; verificar os termos do modelo antes de redistribuição.
