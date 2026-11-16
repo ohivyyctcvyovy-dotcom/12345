@@ -1,33 +1,449 @@
 package com.imagelab.ai;
-import android.app.*;import android.app.ActivityManager;import android.os.Bundle;import android.content.*;import android.graphics.Color;import android.graphics.Typeface;import android.net.Uri;import android.speech.RecognizerIntent;import android.view.Gravity;import android.view.View;import android.widget.*;import java.util.ArrayList;import java.io.BufferedReader;import java.io.FileReader;import android.os.Build;
-public class MainActivity extends Activity{
- int BG=Color.rgb(16,11,24),PANEL=Color.rgb(43,30,60),PURPLE=Color.rgb(192,132,252),WHITE=Color.rgb(248,244,255);
- LinearLayout page,createPanel,editPanel;EditText createPrompt,editPrompt;ImageView createPreview,editPreview;TextView createStatus,editStatus;Spinner models;
- static final int PC=10,PE=12,SC=11,SE=13;
- public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);build();}
- void build(){
- ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(BG);page=new LinearLayout(this);page.setOrientation(1);page.setPadding(dp(18),dp(22),dp(18),dp(28));scroll.addView(page);
- page.addView(txt("ImageLab AI",29,PURPLE,true));page.addView(txt("Estúdio de criação e edição no celular",13,0xFFD7C7E8,false));
- LinearLayout tabs=new LinearLayout(this);Button ct=btn("✦ Criar imagem",true),et=btn("▧ Modificar foto",false);LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(48),1);a.topMargin=dp(18);tabs.addView(ct,a);LinearLayout.LayoutParams z=new LinearLayout.LayoutParams(0,dp(48),1);z.leftMargin=dp(8);z.topMargin=dp(18);tabs.addView(et,z);page.addView(tabs);
- createPanel=new LinearLayout(this);createPanel.setOrientation(1);createPanel.setPadding(0,dp(18),0,0);createPanel.addView(txt("CRIAR UMA IMAGEM NOVA",14,PURPLE,true));createPrompt=edit("Descreva a imagem que deseja criar...");createPanel.addView(createPrompt,new LinearLayout.LayoutParams(-1,dp(110)));
- LinearLayout ca=new LinearLayout(this);Button cv=btn("🎙 Falar",false),cp=btn("＋ Foto de referência",false);ca.addView(cv,new LinearLayout.LayoutParams(0,dp(46),1));LinearLayout.LayoutParams cpl=new LinearLayout.LayoutParams(0,dp(46),1);cpl.leftMargin=dp(8);ca.addView(cp,cpl);createPanel.addView(ca);
- createPreview=preview();createPanel.addView(createPreview,previewParams());createStatus=txt("Nenhuma referência selecionada.",12,0xFFD7C7E8,false);createPanel.addView(createStatus);createPanel.addView(txt("MODELO DE GERAÇÃO",13,PURPLE,true));
- models=new Spinner(this);String[] choices={"SDXS-512 Tiny — candidato leve (683 MB)"};ArrayAdapter<String> ad=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,choices);ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);models.setAdapter(ad);createPanel.addView(models,new LinearLayout.LayoutParams(-1,dp(48)));Button gen=btn("✦ Analisar compatibilidade do aparelho",true);LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,dp(50));gp.topMargin=dp(10);createPanel.addView(gen,gp);page.addView(createPanel);
- editPanel=new LinearLayout(this);editPanel.setOrientation(1);editPanel.setPadding(0,dp(18),0,0);editPanel.setVisibility(View.GONE);editPanel.addView(txt("MODIFICAR UMA FOTO EXISTENTE",14,PURPLE,true));editPanel.addView(txt("Esta aba é separada. Escolha uma foto e diga o que deseja mudar.",13,0xFFD7C7E8,false));Button pick=btn("＋ Escolher foto da galeria",false);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(48));pp.topMargin=dp(10);editPanel.addView(pick,pp);editPreview=preview();editPanel.addView(editPreview,previewParams());editStatus=txt("Nenhuma foto selecionada.",12,0xFFD7C7E8,false);editPanel.addView(editStatus);editPrompt=edit("Ex.: mude o fundo, a roupa ou a iluminação...");LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(110));ep.topMargin=dp(10);editPanel.addView(editPrompt,ep);Button ev=btn("🎙 Ditar alteração",false);editPanel.addView(ev);Button apply=btn("✦ Aplicar mudança na foto",true);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,dp(50));ap.topMargin=dp(10);editPanel.addView(apply,ap);page.addView(editPanel);
- TextView memory=txt(mem(),12,0xFFB8A9C8,false);LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(20);page.addView(memory,mp);TextView note=txt("AVISO: esta versão ainda não contém o motor de IA. O app primeiro verifica se o processador e a memória podem suportar um modelo local. Não baixa modelos nem envia fotos para servidores. A geração e a edição só serão ativadas depois de um teste real.",12,0xFFB8A9C8,false);LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(12);page.addView(note,np);
- ct.setOnClickListener(v->tab(true,ct,et));et.setOnClickListener(v->tab(false,ct,et));cp.setOnClickListener(v->pick(PC));pick.setOnClickListener(v->pick(PE));cv.setOnClickListener(v->speak(SC));ev.setOnClickListener(v->speak(SE));gen.setOnClickListener(v->info(false));apply.setOnClickListener(v->info(true));setContentView(scroll);
- }
- void tab(boolean c,Button ct,Button et){createPanel.setVisibility(c?View.VISIBLE:View.GONE);editPanel.setVisibility(c?View.GONE:View.VISIBLE);ct.setBackground(bg(c?PURPLE:PANEL));ct.setTextColor(c?Color.rgb(28,15,40):WHITE);et.setBackground(bg(c?PANEL:PURPLE));et.setTextColor(c?WHITE:Color.rgb(28,15,40));}
- String cpuFlags(){StringBuilder out=new StringBuilder();try(BufferedReader br=new BufferedReader(new FileReader("/proc/cpuinfo"))){String line;while((line=br.readLine())!=null){String low=line.toLowerCase(java.util.Locale.US);if(low.startsWith("features")||low.startsWith("flags")){out.append(line);break;}}}catch(Exception ignored){}return out.toString().toLowerCase(java.util.Locale.US);}
- String compatibility(){ActivityManager.MemoryInfo i=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(i);String flags=cpuFlags();boolean arm64=false;for(String abi:Build.SUPPORTED_ABIS)if(abi.equalsIgnoreCase("arm64-v8a"))arm64=true;boolean dot=flags.contains("asimddp");boolean half=flags.contains("fphp")&&flags.contains("asimdhp");double free=i.availMem/1073741824.0,total=i.totalMem/1073741824.0;StringBuilder s=new StringBuilder();s.append("Android: ").append(Build.VERSION.RELEASE).append("\nArquitetura 64-bit: ").append(arm64?"sim":"não detectada").append("\nInstruções dot-product: ").append(dot?"detectadas":"não detectadas").append("\nFP16: ").append(half?"detectado":"não detectado").append(String.format(java.util.Locale.US,"\nRAM total: %.2f GB\nRAM livre agora: %.2f GB",total,free));s.append("\n\n");if(!arm64||!dot||!half)s.append("Resultado: o runtime leve investigado provavelmente não é compatível com este processador.");else if(free<1.5)s.append("Resultado: o processador parece compatível, mas a memória livre está baixa. Feche outros aplicativos e teste novamente.");else s.append("Resultado: requisitos básicos detectados. Ainda é necessário testar a geração real; isto não garante funcionamento.");s.append("\n\nNenhum modelo foi baixado e nenhuma imagem foi enviada.");return s.toString();}
- void info(boolean editing){String m=editing?"A edição por IA ainda precisa do motor local integrado. Nenhuma alteração foi aplicada.":"Verificação preliminar do aparelho\n\n"+compatibility()+"\n\nO modelo SDXS continua sendo apenas um candidato. O aplicativo ainda não gera imagens.";new AlertDialog.Builder(this).setTitle(editing?"Edição ainda não ativada":"Diagnóstico do aparelho").setMessage(m).setPositiveButton("Entendi",null).show();}
- String mem(){ActivityManager.MemoryInfo i=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(i);return String.format(java.util.Locale.US,"Memória agora: %.1f GB total; %.1f GB disponível. O modelo de 683 MB também precisa de memória extra para funcionar.",i.totalMem/1073741824.0,i.availMem/1073741824.0);}
- EditText edit(String h){EditText e=new EditText(this);e.setTextColor(WHITE);e.setHintTextColor(0xFFB8A9C8);e.setHint(h);e.setTextSize(14);e.setGravity(Gravity.TOP);e.setMinLines(3);e.setPadding(dp(14),dp(14),dp(14),dp(14));e.setBackground(bg(PANEL));return e;}
- ImageView preview(){ImageView v=new ImageView(this);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setBackground(bg(PANEL));return v;}LinearLayout.LayoutParams previewParams(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(180));p.topMargin=dp(10);p.bottomMargin=dp(8);return p;}
- void pick(int r){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("image/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,r);}
- void speak(int r){try{Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"pt-BR");startActivityForResult(i,r);}catch(Exception e){Toast.makeText(this,"Voz indisponível.",Toast.LENGTH_LONG).show();}}
- protected void onActivityResult(int r,int result,Intent d){super.onActivityResult(r,result,d);if(result!=RESULT_OK||d==null)return;if(r==PC||r==PE){Uri u=d.getData();if(u==null)return;try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}if(r==PC){createPreview.setImageURI(u);createStatus.setText("Referência selecionada.");}else{editPreview.setImageURI(u);editStatus.setText("Foto selecionada para modificação.");}}else if(r==SC||r==SE){ArrayList<String>x=d.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);if(x!=null&&!x.isEmpty())(r==SC?createPrompt:editPrompt).setText(x.get(0));}}
- TextView txt(String s,int n,int c,boolean b){TextView t=new TextView(this);t.setText(s);t.setTextSize(n);t.setTextColor(c);if(b)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
- Button btn(String s,boolean p){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(13);b.setTextColor(p?Color.rgb(28,15,40):WHITE);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setBackground(bg(p?PURPLE:PANEL));return b;}
- android.graphics.drawable.GradientDrawable bg(int c){android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();d.setColor(c);d.setCornerRadius(dp(16));return d;}int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.ActivityManager;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.speech.RecognizerIntent;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.*;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Locale;
+
+public class MainActivity extends Activity {
+    private static final int BG = Color.rgb(16, 11, 24);
+    private static final int PANEL = Color.rgb(43, 30, 60);
+    private static final int PURPLE = Color.rgb(192, 132, 252);
+    private static final int WHITE = Color.rgb(248, 244, 255);
+
+    private static final int PICK_CREATE_IMAGE = 10;
+    private static final int PICK_EDIT_IMAGE = 12;
+    private static final int SPEAK_CREATE = 11;
+    private static final int SPEAK_EDIT = 13;
+    private static final int PICK_MODEL = 14;
+    private static final long MIN_FREE_RAM_BYTES = 1536L * 1024L * 1024L;
+
+    private static boolean nativeReady;
+    static {
+        try {
+            System.loadLibrary("imagelab_engine");
+            nativeReady = true;
+        } catch (Throwable error) {
+            nativeReady = false;
+        }
+    }
+
+    private native int[] nativeGenerate(ParcelFileDescriptor modelFd, String prompt,
+                                         int width, int height, int threads);
+    private native String nativeLastError();
+
+    private LinearLayout page, createPanel, editPanel;
+    private EditText createPrompt, editPrompt;
+    private ImageView createPreview, editPreview;
+    private TextView createStatus, editStatus, modelStatus;
+    private Uri modelUri;
+
+    @Override
+    public void onCreate(Bundle state) {
+        super.onCreate(state);
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
+        modelUri = Uri.parse(getPreferences(MODE_PRIVATE).getString("model_uri", ""));
+        if ("".equals(modelUri.toString())) modelUri = null;
+        build();
+    }
+
+    private void build() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(BG);
+        page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(22), dp(18), dp(28));
+        scroll.addView(page);
+
+        page.addView(txt("ImageLab AI", 29, PURPLE, true));
+        page.addView(txt("Estúdio de criação e edição no celular", 13, 0xFFD7C7E8, false));
+
+        LinearLayout tabs = new LinearLayout(this);
+        Button createTab = btn("✦ Criar imagem", true);
+        Button editTab = btn("▧ Modificar foto", false);
+        LinearLayout.LayoutParams tabA = new LinearLayout.LayoutParams(0, dp(48), 1);
+        tabA.topMargin = dp(18);
+        tabs.addView(createTab, tabA);
+        LinearLayout.LayoutParams tabB = new LinearLayout.LayoutParams(0, dp(48), 1);
+        tabB.leftMargin = dp(8);
+        tabB.topMargin = dp(18);
+        tabs.addView(editTab, tabB);
+        page.addView(tabs);
+
+        createPanel = new LinearLayout(this);
+        createPanel.setOrientation(LinearLayout.VERTICAL);
+        createPanel.setPadding(0, dp(18), 0, 0);
+        createPanel.addView(txt("CRIAR UMA IMAGEM NOVA", 14, PURPLE, true));
+        createPrompt = edit("Descreva a imagem que deseja criar...");
+        createPanel.addView(createPrompt, new LinearLayout.LayoutParams(-1, dp(110)));
+
+        LinearLayout voiceAndReference = new LinearLayout(this);
+        Button voice = btn("🎙 Falar", false);
+        Button reference = btn("＋ Foto de referência", false);
+        voiceAndReference.addView(voice, new LinearLayout.LayoutParams(0, dp(46), 1));
+        LinearLayout.LayoutParams referenceParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+        referenceParams.leftMargin = dp(8);
+        voiceAndReference.addView(reference, referenceParams);
+        createPanel.addView(voiceAndReference);
+
+        createPreview = preview();
+        createPanel.addView(createPreview, previewParams());
+        createStatus = txt("Nenhuma referência selecionada.", 12, 0xFFD7C7E8, false);
+        createPanel.addView(createStatus);
+
+        createPanel.addView(txt("MODELO DE IA LOCAL", 13, PURPLE, true));
+        modelStatus = txt(modelUri == null ? "Nenhum modelo selecionado. Escolha um arquivo GGUF compatível." :
+                "Modelo selecionado: " + savedModelName(), 12, 0xFFD7C7E8, false);
+        LinearLayout.LayoutParams modelStatusParams = new LinearLayout.LayoutParams(-1, -2);
+        modelStatusParams.topMargin = dp(6);
+        createPanel.addView(modelStatus, modelStatusParams);
+
+        Button chooseModel = btn("＋ Selecionar modelo GGUF", false);
+        LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(-1, dp(48));
+        chooseParams.topMargin = dp(8);
+        createPanel.addView(chooseModel, chooseParams);
+
+        Button generate = btn("✦ Gerar imagem (SDXS / 1 etapa)", true);
+        LinearLayout.LayoutParams generateParams = new LinearLayout.LayoutParams(-1, dp(50));
+        generateParams.topMargin = dp(10);
+        createPanel.addView(generate, generateParams);
+
+        Button diagnostic = btn("Verificar aparelho e memória", false);
+        LinearLayout.LayoutParams diagnosticParams = new LinearLayout.LayoutParams(-1, dp(46));
+        diagnosticParams.topMargin = dp(8);
+        createPanel.addView(diagnostic, diagnosticParams);
+        page.addView(createPanel);
+
+        editPanel = new LinearLayout(this);
+        editPanel.setOrientation(LinearLayout.VERTICAL);
+        editPanel.setPadding(0, dp(18), 0, 0);
+        editPanel.setVisibility(View.GONE);
+        editPanel.addView(txt("MODIFICAR UMA FOTO EXISTENTE", 14, PURPLE, true));
+        editPanel.addView(txt("Escolha uma foto e escreva o que deseja mudar.", 13, 0xFFD7C7E8, false));
+        Button pickEdit = btn("＋ Escolher foto da galeria", false);
+        LinearLayout.LayoutParams pickEditParams = new LinearLayout.LayoutParams(-1, dp(48));
+        pickEditParams.topMargin = dp(10);
+        editPanel.addView(pickEdit, pickEditParams);
+        editPreview = preview();
+        editPanel.addView(editPreview, previewParams());
+        editStatus = txt("Nenhuma foto selecionada.", 12, 0xFFD7C7E8, false);
+        editPanel.addView(editStatus);
+        editPrompt = edit("Ex.: mude o fundo, a roupa ou a iluminação...");
+        LinearLayout.LayoutParams editPromptParams = new LinearLayout.LayoutParams(-1, dp(110));
+        editPromptParams.topMargin = dp(10);
+        editPanel.addView(editPrompt, editPromptParams);
+        Button editVoice = btn("🎙 Ditar alteração", false);
+        editPanel.addView(editVoice);
+        Button apply = btn("✦ Aplicar mudança na foto", true);
+        LinearLayout.LayoutParams applyParams = new LinearLayout.LayoutParams(-1, dp(50));
+        applyParams.topMargin = dp(10);
+        editPanel.addView(apply, applyParams);
+        page.addView(editPanel);
+
+        TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO EM TESTE. O modelo é escolhido pelo usuário e fica no próprio celular. A geração ainda precisa ser validada neste aparelho; se a memória estiver baixa, o app bloqueia a tentativa para evitar travamentos. A edição de fotos ainda não está conectada. Nenhuma foto ou descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
+        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+        noteParams.topMargin = dp(20);
+        page.addView(note, noteParams);
+
+        createTab.setOnClickListener(v -> switchTab(true, createTab, editTab));
+        editTab.setOnClickListener(v -> switchTab(false, createTab, editTab));
+        voice.setOnClickListener(v -> speak(SPEAK_CREATE));
+        reference.setOnClickListener(v -> pickImage(PICK_CREATE_IMAGE));
+        chooseModel.setOnClickListener(v -> pickModel());
+        generate.setOnClickListener(v -> generateImage(generate));
+        diagnostic.setOnClickListener(v -> showDiagnostic());
+        pickEdit.setOnClickListener(v -> pickImage(PICK_EDIT_IMAGE));
+        editVoice.setOnClickListener(v -> speak(SPEAK_EDIT));
+        apply.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("Edição ainda não ativada")
+                .setMessage("O motor de edição de fotos ainda precisa ser integrado. Nenhuma alteração foi aplicada.")
+                .setPositiveButton("Entendi", null).show());
+
+        setContentView(scroll);
+    }
+
+    private void switchTab(boolean creating, Button createTab, Button editTab) {
+        createPanel.setVisibility(creating ? View.VISIBLE : View.GONE);
+        editPanel.setVisibility(creating ? View.GONE : View.VISIBLE);
+        createTab.setBackground(bg(creating ? PURPLE : PANEL));
+        createTab.setTextColor(creating ? Color.rgb(28, 15, 40) : WHITE);
+        editTab.setBackground(bg(creating ? PANEL : PURPLE));
+        editTab.setTextColor(creating ? WHITE : Color.rgb(28, 15, 40));
+    }
+
+    private String memorySummary() {
+        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
+        ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
+        return String.format(Locale.US, "RAM total: %.2f GB\nRAM disponível agora: %.2f GB",
+                info.totalMem / 1073741824.0, info.availMem / 1073741824.0);
+    }
+
+    private void showDiagnostic() {
+        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
+        ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
+        boolean arm64 = false;
+        for (String abi : Build.SUPPORTED_ABIS) if ("arm64-v8a".equalsIgnoreCase(abi)) arm64 = true;
+        String message = "Android: " + Build.VERSION.RELEASE +
+                "\nArquitetura arm64: " + (arm64 ? "sim" : "não detectada") +
+                "\nMotor C/C++ carregado: " + (nativeReady ? "sim" : "não") +
+                "\n" + memorySummary() +
+                "\n\nO app usa CPU genérica arm64; não exige GPU Adreno. Para proteger o aparelho, a geração só começa com pelo menos 1,5 GB de RAM disponível. Isso é uma margem de segurança, não garantia de que o modelo vai funcionar.";
+        new AlertDialog.Builder(this).setTitle("Diagnóstico do aparelho")
+                .setMessage(message).setPositiveButton("Entendi", null).show();
+    }
+
+    private void pickModel() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("*/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent, PICK_MODEL);
+    }
+
+    private String displayName(Uri uri) {
+        String name = uri.getLastPathSegment();
+        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) name = cursor.getString(index);
+            }
+        } catch (Exception ignored) { }
+        return name == null ? "modelo selecionado" : name;
+    }
+
+    private String savedModelName() {
+        return modelUri == null ? "" : displayName(modelUri);
+    }
+
+    private void generateImage(Button button) {
+        if (!nativeReady) {
+            showError("O motor nativo não foi carregado nesta instalação.");
+            return;
+        }
+        if (modelUri == null) {
+            showError("Primeiro selecione o arquivo GGUF do modelo SDXS no armazenamento do celular.");
+            return;
+        }
+        String prompt = createPrompt.getText().toString().trim();
+        if (prompt.isEmpty()) {
+            showError("Escreva ou dite uma descrição para a imagem.");
+            return;
+        }
+
+        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
+        ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
+        if (info.availMem < MIN_FREE_RAM_BYTES) {
+            showError("A RAM disponível está baixa (" +
+                    String.format(Locale.US, "%.2f GB", info.availMem / 1073741824.0) +
+                    "). Para evitar que o celular trave, a geração não foi iniciada. Feche outros aplicativos e tente novamente quando houver pelo menos 1,5 GB disponíveis.");
+            return;
+        }
+
+        final Uri selectedModel = modelUri;
+        final String finalPrompt = prompt;
+        button.setEnabled(false);
+        createStatus.setText("Carregando o modelo e preparando a imagem...");
+        new Thread(() -> {
+            int[] pixels = null;
+            String error = null;
+            try (ParcelFileDescriptor descriptor =
+                         getContentResolver().openFileDescriptor(selectedModel, "r")) {
+                if (descriptor == null) {
+                    error = "Não foi possível abrir o arquivo do modelo.";
+                } else {
+                    pixels = nativeGenerate(descriptor, finalPrompt, 512, 512, 2);
+                    if (pixels == null) error = nativeLastError();
+                }
+            } catch (OutOfMemoryError memoryError) {
+                error = "O Android ficou sem memória durante a geração. O modelo não foi executado até o fim.";
+            } catch (Exception exception) {
+                error = "Falha ao abrir o modelo: " + exception.getMessage();
+            }
+
+            final int[] generatedPixels = pixels;
+            final String generationError = error;
+            runOnUiThread(() -> {
+                button.setEnabled(true);
+                if (generatedPixels == null) {
+                    createStatus.setText("A geração não foi concluída.");
+                    showError(generationError == null || generationError.isEmpty()
+                            ? "O motor não conseguiu gerar a imagem." : generationError);
+                    return;
+                }
+                Bitmap bitmap = Bitmap.createBitmap(generatedPixels, 512, 512, Bitmap.Config.ARGB_8888);
+                createPreview.setImageBitmap(bitmap);
+                String saved = saveImage(bitmap);
+                createStatus.setText(saved == null ? "Imagem gerada, mas não foi possível salvá-la." :
+                        "Imagem gerada e salva em Pictures/ImageLabAI.");
+                Toast.makeText(this, saved == null ? "Imagem gerada." : "Imagem salva na galeria.", Toast.LENGTH_LONG).show();
+            });
+        }, "ImageLab-Generate").start();
+    }
+
+    private String saveImage(Bitmap bitmap) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
+        Uri uri = null;
+        try {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, "ImageLab_" + System.currentTimeMillis() + ".png");
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+            values.put(MediaStore.Images.Media.RELATIVE_PATH,
+                    Environment.DIRECTORY_PICTURES + "/ImageLabAI");
+            values.put(MediaStore.Images.Media.IS_PENDING, 1);
+            uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) return null;
+            try (OutputStream stream = getContentResolver().openOutputStream(uri)) {
+                if (stream == null || !bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                    getContentResolver().delete(uri, null, null);
+                    return null;
+                }
+            }
+            ContentValues complete = new ContentValues();
+            complete.put(MediaStore.Images.Media.IS_PENDING, 0);
+            getContentResolver().update(uri, complete, null, null);
+            return uri.toString();
+        } catch (Exception error) {
+            if (uri != null) getContentResolver().delete(uri, null, null);
+            return null;
+        }
+    }
+
+    private void showError(String message) {
+        new AlertDialog.Builder(this).setTitle("ImageLab AI")
+                .setMessage(message).setPositiveButton("Entendi", null).show();
+    }
+
+    private void pickImage(int requestCode) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("image/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent, requestCode);
+    }
+
+    private void speak(int requestCode) {
+        try {
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR");
+            startActivityForResult(intent, requestCode);
+        } catch (Exception error) {
+            Toast.makeText(this, "Voz indisponível.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            if (requestCode == PICK_MODEL && modelStatus != null) modelStatus.setText("Nenhum modelo selecionado.");
+            return;
+        }
+        Uri uri = data.getData();
+        if (requestCode == PICK_MODEL) {
+            String name = displayName(uri);
+            if (!name.toLowerCase(Locale.US).endsWith(".gguf")) {
+                showError("Por enquanto, selecione um arquivo .gguf compatível com SDXS.");
+                return;
+            }
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception ignored) { }
+            modelUri = uri;
+            getPreferences(MODE_PRIVATE).edit().putString("model_uri", uri.toString()).apply();
+            modelStatus.setText("Modelo selecionado: " + name + "\nO arquivo permanece no armazenamento escolhido.");
+        } else if (requestCode == PICK_CREATE_IMAGE || requestCode == PICK_EDIT_IMAGE) {
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception ignored) { }
+            if (requestCode == PICK_CREATE_IMAGE) {
+                createPreview.setImageURI(uri);
+                createStatus.setText("Referência selecionada.");
+            } else {
+                editPreview.setImageURI(uri);
+                editStatus.setText("Foto selecionada para modificação.");
+            }
+        } else if (requestCode == SPEAK_CREATE || requestCode == SPEAK_EDIT) {
+            ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (results != null && !results.isEmpty()) {
+                (requestCode == SPEAK_CREATE ? createPrompt : editPrompt).setText(results.get(0));
+            }
+        }
+    }
+
+    private EditText edit(String hint) {
+        EditText field = new EditText(this);
+        field.setTextColor(WHITE);
+        field.setHintTextColor(0xFFB8A9C8);
+        field.setHint(hint);
+        field.setTextSize(14);
+        field.setGravity(Gravity.TOP);
+        field.setMinLines(3);
+        field.setPadding(dp(14), dp(14), dp(14), dp(14));
+        field.setBackground(bg(PANEL));
+        return field;
+    }
+
+    private ImageView preview() {
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setBackground(bg(PANEL));
+        return image;
+    }
+
+    private LinearLayout.LayoutParams previewParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(180));
+        params.topMargin = dp(10);
+        params.bottomMargin = dp(8);
+        return params;
+    }
+
+    private TextView txt(String value, int size, int color, boolean bold) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextSize(size);
+        text.setTextColor(color);
+        if (bold) text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return text;
+    }
+
+    private Button btn(String value, boolean primary) {
+        Button button = new Button(this);
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setTextColor(primary ? Color.rgb(28, 15, 40) : WHITE);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setBackground(bg(primary ? PURPLE : PANEL));
+        return button;
+    }
+
+    private android.graphics.drawable.GradientDrawable bg(int color) {
+        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(16));
+        return drawable;
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
 }
