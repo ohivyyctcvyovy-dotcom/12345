@@ -1,24 +1,17 @@
-# Motor de IA local — decisão técnica
+# Estado dos motores de imagem
 
-## Requisitos do projeto
-1. Processar texto e imagem no próprio telefone.
-2. Não enviar fotos ou prompts a serviços externos.
-3. Escolher o menor modelo viável e reduzir resolução/etapas quando necessário.
-4. Não iniciar inferência se a memória livre estiver abaixo do limite de segurança definido após testes.
-5. Preservar a aparência do personagem tanto quanto o modelo permitir; isso não pode ser garantido em toda edição.
+## Modelos investigados
+- **SDXS-512 Tiny (683 MB, Q8):** candidato mais leve. O runtime LlamaDart/stable-diffusion.cpp documenta geração no Android arm64 e validação em Galaxy A53, S24 e Pixel 9 Pro. O tamanho do arquivo não é a RAM total necessária. No Galaxy A53, a medição publicada foi de 26–29 segundos por imagem em 512x512, uma etapa. Não há garantia para este aparelho.
+- **SD-Turbo Q8 + TAESD (aprox. 2 GB):** segundo modelo documentado, mas pesado; o teste publicado informa que a verificação de memória recusou sua execução no Galaxy A53. Não deve ser selecionado como padrão.
+- **Stable Diffusion 1.5:** alternativa conhecida, porém não incluída como motor integrado nesta versão.
 
-## Candidatos investigados
-- **MediaPipe Image Generator:** biblioteca Android oficial, mas o Google recomenda pelo menos 8 GB de RAM e descreve a tarefa como experimental. Não é uma escolha segura como padrão para um telefone de entrada.
-- **MobileDiffusion:** pesquisa do Google com 520 milhões de parâmetros; o artigo relata otimização para dispositivos móveis, mas isso por si só não fornece um pacote pronto e testado para este projeto.
-- **SDXL:** não será o modelo padrão. O usuário já observou que o SDAI fecha durante a geração com SDXL.
+## Edição de foto
+O runtime LlamaDart documenta operações de imagem-para-imagem e edição com máscara em receitas específicas. Isso não significa que a função esteja conectada neste aplicativo. A aba de edição atual permite selecionar uma foto e escrever/ditar instruções, mas ainda não aplica mudanças com IA.
 
-## Próximo teste
-Investigar uma implementação local de Stable Diffusion 1.5 em CPU/GPU com modelo quantizado e medir:
-- RAM livre antes e durante a geração;
-- tamanho real dos arquivos do modelo;
-- tempo de geração em baixa resolução;
-- estabilidade sem outros aplicativos abertos;
-- qualidade da imagem em comparação com o consumo de memória.
-
-## Estado
-O app desta pasta ainda não contém o runtime nem os pesos do modelo. O botão de geração informa isso explicitamente. Nenhuma geração por IA é anunciada como funcional até haver teste real no aparelho-alvo.
+## Estado real deste APK
+- Duas abas separadas: criar imagem e modificar foto existente.
+- Seleção de imagem independente em cada aba.
+- Campo de instruções independente e entrada por voz.
+- Seletor informativo para SDXS e SD-Turbo.
+- Os motores nativos, os arquivos dos modelos, o descarregamento de modelos e a inferência ainda NÃO estão integrados.
+- Não anunciar geração ou edição por IA como funcional até integrar o runtime, verificar a arquitetura ARM do aparelho e testar no telefone com a memória disponível.
