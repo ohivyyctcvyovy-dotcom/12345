@@ -13,5 +13,7 @@ O runtime LlamaDart documenta operações de imagem-para-imagem e edição com m
 - Seleção de imagem independente em cada aba.
 - Campo de instruções independente e entrada por voz.
 - Seletor informativo para SDXS e SD-Turbo.
+- O app agora faz uma verificação preliminar local de ABI arm64, flags de CPU (dot-product e FP16) e memória livre antes de qualquer tentativa.
+- A verificação é apenas um filtro inicial: não confirma que a inferência funcionará.
 - Os motores nativos, os arquivos dos modelos, o descarregamento de modelos e a inferência ainda NÃO estão integrados.
 - Não anunciar geração ou edição por IA como funcional até integrar o runtime, verificar a arquitetura ARM do aparelho e testar no telefone com a memória disponível.
