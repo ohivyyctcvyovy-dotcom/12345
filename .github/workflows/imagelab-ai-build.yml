@@ -1,4 +1,4 @@
-name: Build ImageLab AI APK
+name: Build ImageLab AI APK + model
 
 on:
   workflow_dispatch:
@@ -46,9 +46,33 @@ jobs:
         working-directory: ImageLabAI/android
         run: gradle --no-daemon assembleDebug
 
-      - name: Upload APK
+      - name: Prepare APK and SDXS model package
+        shell: bash
+        run: |
+          mkdir -p release
+          cp ImageLabAI/android/app/build/outputs/apk/debug/app-debug.apk release/ImageLabAI.apk
+          curl --fail --location --retry 3 --retry-delay 5 \
+            "https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF/resolve/3144d898d61492f8382ffcabec055733fc5b2a0e/sdxs-512-tinySDdistilled_Q8_0.gguf?download=true" \
+            --output release/sdxs-512-tinySDdistilled_Q8_0.gguf
+          cat > release/LEIA-ME.txt <<'EOF'
+          ImageLab AI - pacote de instalação
+
+          1. Instale ImageLabAI.apk.
+          2. Abra o app e use "Escolher modelo".
+          3. Selecione sdxs-512-tinySDdistilled_Q8_0.gguf, extraído deste pacote.
+
+          Modelo: SDXS-512 Tiny, quantização Q8_0, aproximadamente 683 MB.
+          Origem: concedo/sdxs-512-tinySDdistilled-GGUF
+          Licença indicada pelo autor: OpenRAIL++.
+          O modelo é um arquivo separado; não está embutido dentro do APK.
+          A execução depende da memória e compatibilidade do aparelho. Este modelo
+          ainda não foi validado no Galaxy A04e.
+          EOF
+
+      - name: Upload APK and model together
         uses: actions/upload-artifact@v4
         with:
-          name: ImageLab-AI-debug
-          path: ImageLabAI/android/app/build/outputs/apk/debug/app-debug.apk
+          name: ImageLab-AI-APK-e-Modelo
+          path: release/*
           if-no-files-found: error
+          retention-days: 30
