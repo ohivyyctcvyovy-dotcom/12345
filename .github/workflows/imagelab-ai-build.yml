@@ -69,6 +69,14 @@ jobs:
           ainda não foi validado no Galaxy A04e.
           EOF
 
+      - name: Upload APK separately for easy phone download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageLab-AI-APK
+          path: release/ImageLabAI.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload APK and model together
         uses: actions/upload-artifact@v4
         with:
