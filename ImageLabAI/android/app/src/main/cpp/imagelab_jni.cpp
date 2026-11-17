@@ -265,6 +265,12 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
 
 cleanup:
     if (context) sd_set_generation_progress_callback(context, nullptr, nullptr);
+    if (!g_cached_context && g_cached_fd >= 0) {
+        close(g_cached_fd);
+        g_cached_fd = -1;
+        g_cached_device = 0;
+        g_cached_inode = 0;
+    }
     sd_result_free(result);
     sd_opt_free(imageOptions);
     sd_opt_free(contextOptions);
