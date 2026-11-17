@@ -6,10 +6,46 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <mutex>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "stable-diffusion.h"
 
 namespace {
 thread_local std::string g_last_error;
+
+std::mutex g_context_mutex;
+sd_ctx_t* g_cached_context = nullptr;
+int g_cached_fd = -1;
+dev_t g_cached_device = 0;
+ino_t g_cached_inode = 0;
+
+struct ProgressData {
+    JNIEnv* env;
+    jobject activity;
+    jmethodID method;
+};
+
+void notify_java(ProgressData* data, const char* stage, jlong completed = 0, jlong total = 0) {
+    if (!data || !data->env || !data->activity || !data->method) return;
+    jstring text = data->env->NewStringUTF(stage ? stage : "Processando imagem...");
+    if (!text) return;
+    data->env->CallVoidMethod(data->activity, data->method, text, completed, total);
+    data->env->DeleteLocalRef(text);
+    if (data->env->ExceptionCheck()) data->env->ExceptionClear();
+}
+
+void generation_progress(const sd_generation_progress_t* progress, void* opaque) {
+    auto* data = static_cast<ProgressData*>(opaque);
+    if (!progress) {
+        notify_java(data, "Gerando imagem...");
+        return;
+    }
+    std::string label = "Processando imagem";
+    if (progress->stage && progress->stage[0]) label = progress->stage;
+    if (progress->detail && progress->detail[0]) label += std::string(": ") + progress->detail;
+    notify_java(data, label.c_str(), (jlong)progress->completed, (jlong)progress->total);
+}
 
 void set_error(const std::string& value) {
     g_last_error = value.empty() ? "Falha desconhecida no motor de imagens." : value;
@@ -75,7 +111,43 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
     char modelPath[64];
     std::snprintf(modelPath, sizeof(modelPath), "/proc/self/fd/%d", fd);
 
-    sd_ctx_t* context = nullptr;
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID progressMethod = activityClass ? env->GetMethodID(
+            activityClass, "onNativeProgress", "(Ljava/lang/String;JJ)V") : nullptr;
+    ProgressData progressData{env, activity, progressMethod};
+
+    // Keep one loaded context for the app process. Reloading a 683 MB model
+    // on every tap caused unnecessary waits and repeated memory pressure.
+    std::lock_guard<std::mutex> contextLock(g_context_mutex);
+    struct stat modelStat {};
+    if (fstat(fd, &modelStat) != 0) {
+        set_error("Não foi possível identificar o arquivo do modelo.");
+        return nullptr;
+    }
+    const bool sameModel = g_cached_context && g_cached_fd >= 0 &&
+            g_cached_device == modelStat.st_dev && g_cached_inode == modelStat.st_ino;
+    if (!sameModel && g_cached_context) {
+        sd_ctx_free(g_cached_context);
+        g_cached_context = nullptr;
+        if (g_cached_fd >= 0) close(g_cached_fd);
+        g_cached_fd = -1;
+    }
+
+    if (!sameModel) {
+        g_cached_fd = dup(fd);
+        if (g_cached_fd < 0) {
+            set_error("Não foi possível manter o arquivo do modelo aberto.");
+            return nullptr;
+        }
+        std::snprintf(modelPath, sizeof(modelPath), "/proc/self/fd/%d", g_cached_fd);
+        g_cached_device = modelStat.st_dev;
+        g_cached_inode = modelStat.st_ino;
+        notify_java(&progressData, "Carregando o modelo de IA no motor...");
+    } else {
+        notify_java(&progressData, "Modelo já carregado. Preparando nova imagem...");
+    }
+
+    sd_ctx_t* context = g_cached_context;
     sd_ctx_opt_t* contextOptions = sd_ctx_opt_create();
     sd_img_gen_opt_t* imageOptions = nullptr;
     sd_result_t* result = nullptr;
@@ -96,14 +168,21 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
         goto cleanup;
     }
 
-    {
+    if (!context) {
         const sd_status_t status = sd_ctx_create(contextOptions, &context);
         if (status != SD_STATUS_OK || !context) {
             const char* detail = sd_get_last_error();
             set_error(detail ? detail : "Não foi possível carregar o modelo neste aparelho.");
+            close(g_cached_fd);
+            g_cached_fd = -1;
+            g_cached_device = 0;
+            g_cached_inode = 0;
             goto cleanup;
         }
+        g_cached_context = context;
     }
+    notify_java(&progressData, "Modelo carregado. Preparando a geração...");
+    sd_set_generation_progress_callback(context, generation_progress, &progressData);
 
     imageOptions = sd_img_gen_opt_create();
     if (!imageOptions) {
@@ -126,8 +205,8 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
         goto cleanup;
     }
 
-    {
-        const sd_status_t status = sd_generate_image(context, imageOptions, &result);
+    notify_java(&progressData, "Gerando a imagem. O tempo depende do processador do celular...");
+    {\n        const sd_status_t status = sd_generate_image(context, imageOptions, &result);
         if (status != SD_STATUS_OK || !result) {
             const char* detail = sd_get_last_error();
             set_error(detail ? detail : "A geração da imagem falhou.");
@@ -184,9 +263,9 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
     }
 
 cleanup:
+    if (context) sd_set_generation_progress_callback(context, nullptr, nullptr);
     sd_result_free(result);
     sd_opt_free(imageOptions);
-    sd_ctx_free(context);
     sd_opt_free(contextOptions);
     return javaPixels;
 }
