@@ -206,7 +206,8 @@ Java_com_imagelab_ai_MainActivity_nativeGenerate(
     }
 
     notify_java(&progressData, "Gerando a imagem. O tempo depende do processador do celular...");
-    {\n        const sd_status_t status = sd_generate_image(context, imageOptions, &result);
+    {
+        const sd_status_t status = sd_generate_image(context, imageOptions, &result);
         if (status != SD_STATUS_OK || !result) {
             const char* detail = sd_get_last_error();
             set_error(detail ? detail : "A geração da imagem falhou.");
