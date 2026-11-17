@@ -79,7 +79,7 @@ Java_com_imagelab_ai_MainActivity_nativeLastError(JNIEnv* env, jobject) {
 
 extern "C" JNIEXPORT jintArray JNICALL
 Java_com_imagelab_ai_MainActivity_nativeGenerate(
-        JNIEnv* env, jobject, jobject parcelFileDescriptor, jstring promptValue,
+        JNIEnv* env, jobject activity, jobject parcelFileDescriptor, jstring promptValue,
         jint width, jint height, jint threadCount) {
     g_last_error.clear();
     if (!parcelFileDescriptor || !promptValue) {
