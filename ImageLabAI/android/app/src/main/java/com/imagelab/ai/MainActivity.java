@@ -54,6 +54,16 @@ public class MainActivity extends Activity {
                                          int width, int height, int threads);
     private native String nativeLastError();
 
+    private void onNativeProgress(String stage, long completed, long total) {
+        runOnUiThread(() -> {
+            if (total > 0) {
+                createStatus.setText(stage + " (" + completed + "/" + total + ")");
+            } else {
+                createStatus.setText(stage);
+            }
+        });
+    }
+
     private LinearLayout page, createPanel;
     private EditText createPrompt;
     private ImageView createPreview;
@@ -314,7 +324,7 @@ public class MainActivity extends Activity {
         final Uri selectedModel = modelUri;
         final String finalPrompt = prompt;
         button.setEnabled(false);
-        createStatus.setText("Carregando o modelo e preparando a imagem...");
+        createStatus.setText("Iniciando o motor de IA...");
         new Thread(() -> {
             int[] pixels = null;
             String error = null;
