@@ -37,9 +37,7 @@ public class MainActivity extends Activity {
     private static final int WHITE = Color.rgb(248, 244, 255);
 
     private static final int PICK_CREATE_IMAGE = 10;
-    private static final int PICK_EDIT_IMAGE = 12;
     private static final int SPEAK_CREATE = 11;
-    private static final int SPEAK_EDIT = 13;
     private static final int PICK_MODEL = 14;
 
     private static boolean nativeReady;
@@ -56,10 +54,10 @@ public class MainActivity extends Activity {
                                          int width, int height, int threads);
     private native String nativeLastError();
 
-    private LinearLayout page, createPanel, editPanel;
-    private EditText createPrompt, editPrompt;
-    private ImageView createPreview, editPreview;
-    private TextView createStatus, editStatus, modelStatus;
+    private LinearLayout page, createPanel;
+    private EditText createPrompt;
+    private ImageView createPreview;
+    private TextView createStatus, modelStatus;
     private Uri modelUri;
 
     @Override
@@ -86,14 +84,9 @@ public class MainActivity extends Activity {
 
         LinearLayout tabs = new LinearLayout(this);
         Button createTab = btn("✦ Criar imagem", true);
-        Button editTab = btn("▧ Modificar foto", false);
         LinearLayout.LayoutParams tabA = new LinearLayout.LayoutParams(0, dp(48), 1);
         tabA.topMargin = dp(18);
         tabs.addView(createTab, tabA);
-        LinearLayout.LayoutParams tabB = new LinearLayout.LayoutParams(0, dp(48), 1);
-        tabB.leftMargin = dp(8);
-        tabB.topMargin = dp(18);
-        tabs.addView(editTab, tabB);
         page.addView(tabs);
 
         createPanel = new LinearLayout(this);
@@ -140,61 +133,18 @@ public class MainActivity extends Activity {
         createPanel.addView(diagnostic, diagnosticParams);
         page.addView(createPanel);
 
-        editPanel = new LinearLayout(this);
-        editPanel.setOrientation(LinearLayout.VERTICAL);
-        editPanel.setPadding(0, dp(18), 0, 0);
-        editPanel.setVisibility(View.GONE);
-        editPanel.addView(txt("MODIFICAR UMA FOTO EXISTENTE", 14, PURPLE, true));
-        editPanel.addView(txt("Escolha uma foto e escreva o que deseja mudar.", 13, 0xFFD7C7E8, false));
-        Button pickEdit = btn("＋ Escolher foto da galeria", false);
-        LinearLayout.LayoutParams pickEditParams = new LinearLayout.LayoutParams(-1, dp(48));
-        pickEditParams.topMargin = dp(10);
-        editPanel.addView(pickEdit, pickEditParams);
-        editPreview = preview();
-        editPanel.addView(editPreview, previewParams());
-        editStatus = txt("Nenhuma foto selecionada.", 12, 0xFFD7C7E8, false);
-        editPanel.addView(editStatus);
-        editPrompt = edit("Ex.: mude o fundo, a roupa ou a iluminação...");
-        LinearLayout.LayoutParams editPromptParams = new LinearLayout.LayoutParams(-1, dp(110));
-        editPromptParams.topMargin = dp(10);
-        editPanel.addView(editPrompt, editPromptParams);
-        Button editVoice = btn("🎙 Ditar alteração", false);
-        editPanel.addView(editVoice);
-        Button apply = btn("✦ Aplicar mudança na foto", true);
-        LinearLayout.LayoutParams applyParams = new LinearLayout.LayoutParams(-1, dp(50));
-        applyParams.topMargin = dp(10);
-        editPanel.addView(apply, applyParams);
-        page.addView(editPanel);
-
         TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO EM TESTE. O modelo fica no próprio celular. A geração será tentada mesmo com pouca RAM; se faltar memória, o Android pode encerrar o aplicativo. A edição de fotos ainda não está conectada. Nenhuma foto ou descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.topMargin = dp(20);
         page.addView(note, noteParams);
 
-        createTab.setOnClickListener(v -> switchTab(true, createTab, editTab));
-        editTab.setOnClickListener(v -> switchTab(false, createTab, editTab));
         voice.setOnClickListener(v -> speak(SPEAK_CREATE));
         reference.setOnClickListener(v -> pickImage(PICK_CREATE_IMAGE));
         chooseModel.setOnClickListener(v -> showModelDownloadDialog(chooseModel));
         generate.setOnClickListener(v -> generateImage(generate));
         diagnostic.setOnClickListener(v -> showDiagnostic());
-        pickEdit.setOnClickListener(v -> pickImage(PICK_EDIT_IMAGE));
-        editVoice.setOnClickListener(v -> speak(SPEAK_EDIT));
-        apply.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("Edição ainda não ativada")
-                .setMessage("O motor de edição de fotos ainda precisa ser integrado. Nenhuma alteração foi aplicada.")
-                .setPositiveButton("Entendi", null).show());
 
         setContentView(scroll);
-    }
-
-    private void switchTab(boolean creating, Button createTab, Button editTab) {
-        createPanel.setVisibility(creating ? View.VISIBLE : View.GONE);
-        editPanel.setVisibility(creating ? View.GONE : View.VISIBLE);
-        createTab.setBackground(bg(creating ? PURPLE : PANEL));
-        createTab.setTextColor(creating ? Color.rgb(28, 15, 40) : WHITE);
-        editTab.setBackground(bg(creating ? PANEL : PURPLE));
-        editTab.setTextColor(creating ? WHITE : Color.rgb(28, 15, 40));
     }
 
     private String memorySummary() {
@@ -486,22 +436,15 @@ public class MainActivity extends Activity {
             modelUri = uri;
             getPreferences(MODE_PRIVATE).edit().putString("model_uri", uri.toString()).apply();
             modelStatus.setText("Modelo selecionado: " + name + "\nO arquivo permanece no armazenamento escolhido.");
-        } else if (requestCode == PICK_CREATE_IMAGE || requestCode == PICK_EDIT_IMAGE) {
+        } else if (requestCode == PICK_CREATE_IMAGE) {
             try {
                 getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (Exception ignored) { }
-            if (requestCode == PICK_CREATE_IMAGE) {
-                createPreview.setImageURI(uri);
-                createStatus.setText("Referência selecionada.");
-            } else {
-                editPreview.setImageURI(uri);
-                editStatus.setText("Foto selecionada para modificação.");
-            }
-        } else if (requestCode == SPEAK_CREATE || requestCode == SPEAK_EDIT) {
+            createPreview.setImageURI(uri);
+            createStatus.setText("Referência selecionada.");
+        } else if (requestCode == SPEAK_CREATE) {
             ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (results != null && !results.isEmpty()) {
-                (requestCode == SPEAK_CREATE ? createPrompt : editPrompt).setText(results.get(0));
-            }
+            if (results != null && !results.isEmpty()) createPrompt.setText(results.get(0));
         }
     }
 
