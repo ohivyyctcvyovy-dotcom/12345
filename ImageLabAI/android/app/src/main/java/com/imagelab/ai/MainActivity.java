@@ -90,7 +90,7 @@ public class MainActivity extends Activity {
         scroll.addView(page);
 
         page.addView(txt("ImageLab AI", 29, PURPLE, true));
-        page.addView(txt("Estúdio de criação e edição no celular", 13, 0xFFD7C7E8, false));
+        page.addView(txt("Estúdio de criação de imagens no celular", 13, 0xFFD7C7E8, false));
 
         LinearLayout tabs = new LinearLayout(this);
         Button createTab = btn("✦ Criar imagem", true);
@@ -143,7 +143,7 @@ public class MainActivity extends Activity {
         createPanel.addView(diagnostic, diagnosticParams);
         page.addView(createPanel);
 
-        TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO EM TESTE. O modelo fica no próprio celular. A geração será tentada mesmo com pouca RAM; se faltar memória, o Android pode encerrar o aplicativo. A edição de fotos ainda não está conectada. Nenhuma foto ou descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
+        TextView note = txt("MOTOR NATIVO C/C++ INTEGRADO. O modelo e a geração funcionam localmente no celular. O progresso será exibido durante o processamento. Se faltar memória, o Android pode encerrar o aplicativo. Nenhuma descrição é enviada para servidores.", 12, 0xFFB8A9C8, false);
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.topMargin = dp(20);
         page.addView(note, noteParams);
@@ -332,7 +332,7 @@ public class MainActivity extends Activity {
                 if (descriptor == null) {
                     error = "Não foi possível abrir o arquivo do modelo.";
                 } else {
-                    pixels = nativeGenerate(descriptor, finalPrompt, 512, 512, 2);
+                    pixels = nativeGenerate(descriptor, finalPrompt, 512, 512, 4);
                     if (pixels == null) error = nativeLastError();
                 }
             } catch (OutOfMemoryError memoryError) {
